@@ -1,0 +1,556 @@
+---
+title: "clean seurat sub clusters"
+author: "me"
+date: "5/31/2019"
+output: html_document
+---
+
+```{r}
+library(dplyr)
+library("Seurat")
+library(data.table)
+library(tidyverse)
+library(tibble)
+require(openxlsx)
+combined<-readRDS("/Users/fortee/Documents/SINGLE CELL EXPERIMENTS/RNAseq_timeline_postMI/Data/CleanFibroAggregateNo1011.rds")
+plot.genesi<-c("Ptprc", "Cd52","Ifit3","Isg15","Dmkn","Wt1","Clu","H2afz","Stmn1","Dkk3","Wif1","Comp","Sfrp2","Mt2","Angptl4","Notch2", "Lyz2","Cthrc1","Acta2","Pi16", "Cd248","Meox1", "Sparcl1","Cxcl14","Dpep1", "zsgreen")
+
+
+
+DotPlot(object = combined, genes.plot = plot.genesi, plot.legend = TRUE, x.lab.rot=TRUE)
+
+#BuildClusterTree(combined)
+genes <- read.csv("/Users/fortee/Documents/SINGLE CELL EXPERIMENTS/RNAseq_timeline_postMI/Data/TopFibros.csv", col.names = NA)
+
+genes<-scan(file="/Users/fortee/Desktop/Genes.csv", what="character")
+genes <- unique(genes)
+cluster.averages <-AverageExpression(combined,return.seurat = TRUE, show.progress = FALSE)
+#DoHeatmap(object = cluster.averages, genes.use = genes[0:9,], slim.col.label = TRUE, remove.key = TRUE)
+#genes= c("Postn", "Col8a1", "Meox1", "Cilp", "Mfap4","Mgp","Sparcl1","Smoc2","Kcnk2","Btg2","Adamtsl2","Spry1","Fstl1","Comp", "Wisp2","Sfrp2","Fn1","Thbs4","1500015O10Rik","Prg4","Wif1")
+genes= c("Postn", "Col8a1", "Meox1", "Cilp", "Mfap4","Mgp","Sparcl1","Smoc2","Kcnk2","Btg2","Adamtsl2","Spry1","Fstl1","Comp", "Wisp2","Sfrp2","Fn1","Thbs4","1500015O10Rik","Prg4","Wif1", "Igf1r", "Igf1", "Ltbp4", "Tgfb1", "Agt")
+DoHeatmap(object = cluster.averages, genes.use = genes, slim.col.label =FALSE, remove.key = FALSE)
+DotPlot(object = combined, genes.plot = c("Fap","Thy1", "Pdpn", "Tnfsf11", "Tnfrsf11b"), plot.legend = TRUE, x.lab.rot=TRUE)
+DotPlot(object = combined, genes.plot = genes, plot.legend = TRUE, x.lab.rot=TRUE) #+ theme(axis.text.x = element_text(face = "italic"))
+VlnPlot(combined,features.plot =c("Fap","Thy1", "Pdpn", "Tnfsf11", "Tnfrsf11b"),point.size.use = 0.1, x.lab.rot = TRUE)#Rankl=Tnfsf11 Opg=Tnfrsf11b
+combined<-SetIdent(combined, ident.use=combined@meta.data$stim)
+VlnPlot(combined,features.plot =c("Fap","Thy1", "Pdpn", "Tnfsf11", "Tnfrsf11b"),point.size.use = 0.1, x.lab.rot = TRUE)
+```
+
+```{r}
+getwd()
+
+library(tidyverse)
+library(assertthat)
+library(Seurat)
+library(readxl)
+library(pheatmap)
+dat <- read_excel("/Users/fortee/Desktop/testD0IPA.xlsx", col_names = TRUE)
+
+
+
+```
+
+```{r}
+ident_use<-"d0"#"Cd3d"
+sub<- SubsetData(combined, ident.use = ident_use, subset.raw = T,  do.clean=T )
+sub<-SetIdent(sub, ident.use=sub@meta.data$CellType_0.5)
+markersd0 <- FindAllMarkers(sub)
+write.csv(markersd0, file="/Users/fortee/Documents/SINGLE CELL EXPERIMENTS/RNAseq_timeline_postMI/Results/subclustering/subclusters/bytime/markers_d0Fibros.csv")
+
+barplot(table(sub@meta.data$CellType_0.5),x.lab.rotate=TRUE, main = paste("Num of cells for",ident_use))
+```
+
+```{r}
+ident_use<-"Fibroblasts_Cxcl14"#"Cd3d"
+sub<- SubsetData(combined, ident.use = ident_use, subset.raw = T,  do.clean=T )
+sub<-SetIdent(sub, ident.use=sub@meta.data$stim)
+
+cluster.averages <-AverageExpression(sub,return.seurat = TRUE, show.progress = FALSE)
+avg2 <- AverageExpression(sub)
+
+cluster.colmeans<-colMeans(cluster.averages@data[combined@var.genes,])
+##average expression of all genes in a cluster for each time points
+barplot(cluster.colmeans, main = paste("Average Expression for", ident_use ))
+barplot(table(sub@ident), main = paste("Num of cells for",ident_use))
+
+T0_ave<-cluster.averages@data
+as.matrix(T0_ave)
+write.csv(as.matrix(T0_ave), file = "/Users/fortee/Documents/SINGLE CELL EXPERIMENTS/RNAseq_timeline_postMI/Results/subclustering/subclusters/bytime/HEpiD_ave_subset.csv")
+
+
+## differentially expressed genes among all time points
+library(dplyr)
+
+diff_genes<-FindAllMarkers(sub)
+write.csv(diff_genes, file="/Users/fortee/Documents/SINGLE CELL EXPERIMENTS/RNAseq_timeline_postMI/Results/subclustering/subclusters/bytime/diff_genes_timepoints_HEpiD.csv")
+top10 <- diff_genes %>% group_by(cluster) %>% top_n(10, avg_logFC)
+head(top10)
+DoHeatmap(object = cluster.averages, genes.use = top10$gene, slim.col.label = TRUE, remove.key = TRUE)
+##head(diff_genes[diff_genes$cluster=="d7",])$gene
+##head(diff_genes)
+top100 <- diff_genes %>% group_by(cluster) %>% top_n(100, avg_logFC)
+write.csv(top100, file="/Users/fortee/Documents/SINGLE CELL EXPERIMENTS/RNAseq_timeline_postMI/Results/subclustering/subclusters/bytime/diff_genes_timepoints_HEpiD_100.csv")
+
+
+top10 <- diff_genes %>% group_by(cluster) %>% top_n(10, avg_logFC)
+DoHeatmap(object = cluster.averages, genes.use = top10$gene, slim.col.label = TRUE, remove.key = TRUE)
+
+diff_genes_pairwise<-FindMarkers(sub, ident.1 = "d28", ident.2 = "d0")
+# view results
+head(diff_genes_pairwise)
+write.csv(diff_genes_pairwise, file="/Users/fortee/Documents/SINGLE CELL EXPERIMENTS/RNAseq_timeline_postMI/Results/subclustering/subclusters/bytime/diff_genes_d28_d0_HEpiD.csv")
+VlnPlot(sub,features.plot =c("Cxcl14", "Dpep1", "Pdgfra", "Meox1", "zsgreen"),point.size.use = 0.1)
+RidgePlot(object = sub, features.plot = "Dpep1", nCol = 2, legend.position = "right", single.legend = TRUE, remove.legend = TRUE)
+```
+
+```{r}
+ident_use<-"LateFibroblasts_Meox1"#"Cd3d"
+sub<- SubsetData(combined, ident.use = ident_use, subset.raw = T,  do.clean=T )
+sub<-SetIdent(sub, ident.use=sub@meta.data$stim)
+
+cluster.averages <-AverageExpression(sub,return.seurat = TRUE, show.progress = FALSE)
+avg2 <- AverageExpression(sub)
+
+cluster.colmeans<-colMeans(cluster.averages@data[combined@var.genes,])
+##average expression of all genes in a cluster for each time points
+barplot(cluster.colmeans, main = paste("Average Expression for", ident_use ))
+barplot(table(sub@ident), main = paste("Num of cells for",ident_use))
+
+T0_ave<-cluster.averages@data
+as.matrix(T0_ave)
+write.csv(as.matrix(T0_ave), file = "/Users/fortee/Documents/SINGLE CELL EXPERIMENTS/RNAseq_timeline_postMI/Results/subclustering/subclusters/bytime/LR_ave_subset.csv")
+
+
+## differentially expressed genes among all time points
+library(dplyr)
+
+diff_genes<-FindAllMarkers(sub)
+write.csv(diff_genes, file="/Users/fortee/Documents/SINGLE CELL EXPERIMENTS/RNAseq_timeline_postMI/Results/subclustering/subclusters/bytime/diff_genes_timepoints_LR.csv")
+top10 <- diff_genes %>% group_by(cluster) %>% top_n(10, avg_logFC)
+head(top10)
+DoHeatmap(object = cluster.averages, genes.use = top10$gene, slim.col.label = TRUE, remove.key = TRUE)
+##head(diff_genes[diff_genes$cluster=="d7",])$gene
+##head(diff_genes)
+top100 <- diff_genes %>% group_by(cluster) %>% top_n(100, avg_logFC)
+write.csv(top100, file="/Users/fortee/Documents/SINGLE CELL EXPERIMENTS/RNAseq_timeline_postMI/Results/subclustering/subclusters/bytime/diff_genes_timepoints_LR_100.csv")
+
+
+top10 <- diff_genes %>% group_by(cluster) %>% top_n(10, avg_logFC)
+DoHeatmap(object = cluster.averages, genes.use = top10$gene, slim.col.label = TRUE, remove.key = TRUE)
+
+diff_genes_pairwise<-FindMarkers(sub, ident.1 = "d28", ident.2 = "d0")
+# view results
+head(diff_genes_pairwise)
+write.csv(diff_genes_pairwise, file="/Users/fortee/Documents/SINGLE CELL EXPERIMENTS/RNAseq_timeline_postMI/Results/subclustering/subclusters/bytime/diff_genes_d28_d0_LR.csv")
+VlnPlot(sub,features.plot =c("Cilp", "Sparcl1", "Col8a1", "Meox1", "zsgreen", "Adamts2"),point.size.use = 0.1)
+RidgePlot(object = sub, features.plot = "Cilp", nCol = 2, legend.position = "right", single.legend = TRUE, remove.legend = TRUE)
+```
+
+```{r}
+ident_use<-"Fibroblasts_Pi16"#"Cd3d"
+sub<- SubsetData(combined, ident.use = ident_use, subset.raw = T,  do.clean=T )
+sub<-SetIdent(sub, ident.use=sub@meta.data$stim)
+
+cluster.averages <-AverageExpression(sub,return.seurat = TRUE, show.progress = FALSE)
+avg2 <- AverageExpression(sub)
+
+cluster.colmeans<-colMeans(cluster.averages@data[combined@var.genes,])
+##average expression of all genes in a cluster for each time points
+barplot(cluster.colmeans, main = paste("Average Expression for", ident_use ))
+barplot(table(sub@ident), main = paste("Num of cells for",ident_use))
+
+T0_ave<-cluster.averages@data
+as.matrix(T0_ave)
+write.csv(as.matrix(T0_ave), file = "/Users/fortee/Documents/SINGLE CELL EXPERIMENTS/RNAseq_timeline_postMI/Results/subclustering/subclusters/bytime/PLS_ave_subset.csv")
+
+
+## differentially expressed genes among all time points
+library(dplyr)
+
+diff_genes<-FindAllMarkers(sub)
+write.csv(diff_genes, file="/Users/fortee/Documents/SINGLE CELL EXPERIMENTS/RNAseq_timeline_postMI/Results/subclustering/subclusters/bytime/diff_genes_timepoints_PLS.csv")
+top10 <- diff_genes %>% group_by(cluster) %>% top_n(10, avg_logFC)
+head(top10)
+DoHeatmap(object = cluster.averages, genes.use = top10$gene, slim.col.label = TRUE, remove.key = TRUE)
+##head(diff_genes[diff_genes$cluster=="d7",])$gene
+##head(diff_genes)
+top100 <- diff_genes %>% group_by(cluster) %>% top_n(100, avg_logFC)
+write.csv(top100, file="/Users/fortee/Documents/SINGLE CELL EXPERIMENTS/RNAseq_timeline_postMI/Results/subclustering/subclusters/bytime/diff_genes_timepoints_PLS_100.csv")
+
+
+top10 <- diff_genes %>% group_by(cluster) %>% top_n(10, avg_logFC)
+DoHeatmap(object = cluster.averages, genes.use = top10$gene, slim.col.label = TRUE, remove.key = TRUE)
+
+diff_genes_pairwise<-FindMarkers(sub, ident.1 = "d28", ident.2 = "d0")
+# view results
+head(diff_genes_pairwise)
+write.csv(diff_genes_pairwise, file="/Users/fortee/Documents/SINGLE CELL EXPERIMENTS/RNAseq_timeline_postMI/Results/subclustering/subclusters/bytime/diff_genes_d28_d0_PLS.csv")
+VlnPlot(sub,features.plot =c("Pi16", "Ly6a", "Pdgfra", "Thy1", "zsgreen"),point.size.use = 0.1)
+RidgePlot(object = sub, features.plot = "Ly6a", nCol = 2, legend.position = "right", single.legend = TRUE, remove.legend = TRUE)
+DotPlot(object = sub, genes.plot = c("Fap","Thy1", "Pdpn", "Tnfsf11", "Tnfrsf11b"), plot.legend = TRUE, x.lab.rot=TRUE)
+```
+
+```{r}
+ident_use<-"Acta2Myofb"#"Cd3d"
+sub<- SubsetData(combined, ident.use = ident_use, subset.raw = T,  do.clean=T )
+sub<-SetIdent(sub, ident.use=sub@meta.data$stim)
+
+cluster.averages <-AverageExpression(sub,return.seurat = TRUE, show.progress = FALSE)
+avg2 <- AverageExpression(sub)
+
+cluster.colmeans<-colMeans(cluster.averages@data[combined@var.genes,])
+##average expression of all genes in a cluster for each time points
+barplot(cluster.colmeans, main = paste("Average Expression for", ident_use ))
+barplot(table(sub@ident), main = paste("Num of cells for",ident_use))
+
+T0_ave<-cluster.averages@data
+as.matrix(T0_ave)
+write.csv(as.matrix(T0_ave), file = "/Users/fortee/Documents/SINGLE CELL EXPERIMENTS/RNAseq_timeline_postMI/Results/subclustering/subclusters/bytime/Myofb_ave_subset.csv")
+
+
+## differentially expressed genes among all time points
+library(dplyr)
+
+diff_genes<-FindAllMarkers(sub)
+write.csv(diff_genes, file="/Users/fortee/Documents/SINGLE CELL EXPERIMENTS/RNAseq_timeline_postMI/Results/subclustering/subclusters/bytime/diff_genes_timepoints_Myofb.csv")
+top10 <- diff_genes %>% group_by(cluster) %>% top_n(10, avg_logFC)
+head(top10)
+DoHeatmap(object = cluster.averages, genes.use = top10$gene, slim.col.label = TRUE, remove.key = TRUE)
+##head(diff_genes[diff_genes$cluster=="d7",])$gene
+##head(diff_genes)
+top100 <- diff_genes %>% group_by(cluster) %>% top_n(100, avg_logFC)
+write.csv(top100, file="/Users/fortee/Documents/SINGLE CELL EXPERIMENTS/RNAseq_timeline_postMI/Results/subclustering/subclusters/bytime/diff_genes_timepoints_Myofb_100.csv")
+
+
+top10 <- diff_genes %>% group_by(cluster) %>% top_n(10, avg_logFC)
+DoHeatmap(object = cluster.averages, genes.use = top10$gene, slim.col.label = TRUE, remove.key = TRUE)
+
+diff_genes_pairwise<-FindMarkers(sub, ident.1 = "d28", ident.2 = "d0")
+# view results
+head(diff_genes_pairwise)
+write.csv(diff_genes_pairwise, file="/Users/fortee/Documents/SINGLE CELL EXPERIMENTS/RNAseq_timeline_postMI/Results/subclustering/subclusters/bytime/diff_genes_d28_d0_Myofb.csv")
+VlnPlot(sub,features.plot =c("Acta2","Cthrc1", "Lox", "zsgreen"),point.size.use = 0.1)
+RidgePlot(object = sub, features.plot = "Acta2", nCol = 2, legend.position = "right", single.legend = TRUE, remove.legend = TRUE)
+```
+
+```{r}
+ident_use<-"Notch2DCs"#"Cd3d"
+sub<- SubsetData(combined, ident.use = ident_use, subset.raw = T,  do.clean=T )
+sub<-SetIdent(sub, ident.use=sub@meta.data$stim)
+
+cluster.averages <-AverageExpression(sub,return.seurat = TRUE, show.progress = FALSE)
+avg2 <- AverageExpression(sub)
+
+cluster.colmeans<-colMeans(cluster.averages@data[combined@var.genes,])
+##average expression of all genes in a cluster for each time points
+barplot(cluster.colmeans, main = paste("Average Expression for", ident_use ))
+barplot(table(sub@ident), main = paste("Num of cells for",ident_use))
+
+T0_ave<-cluster.averages@data
+as.matrix(T0_ave)
+write.csv(as.matrix(T0_ave), file = "/Users/fortee/Documents/SINGLE CELL EXPERIMENTS/RNAseq_timeline_postMI/Results/subclustering/subclusters/bytime/Phagoc_ave_subset.csv")
+
+
+## differentially expressed genes among all time points
+library(dplyr)
+
+diff_genes<-FindAllMarkers(sub)
+write.csv(diff_genes, file="/Users/fortee/Documents/SINGLE CELL EXPERIMENTS/RNAseq_timeline_postMI/Results/subclustering/subclusters/bytime/diff_genes_timepoints_Phagoc.csv")
+top10 <- diff_genes %>% group_by(cluster) %>% top_n(10, avg_logFC)
+head(top10)
+DoHeatmap(object = cluster.averages, genes.use = top10$gene, slim.col.label = TRUE, remove.key = TRUE)
+##head(diff_genes[diff_genes$cluster=="d7",])$gene
+##head(diff_genes)
+top100 <- diff_genes %>% group_by(cluster) %>% top_n(100, avg_logFC)
+write.csv(top100, file="/Users/fortee/Documents/SINGLE CELL EXPERIMENTS/RNAseq_timeline_postMI/Results/subclustering/subclusters/bytime/diff_genes_timepoints_Phagoc_100.csv")
+
+
+top10 <- diff_genes %>% group_by(cluster) %>% top_n(10, avg_logFC)
+DoHeatmap(object = cluster.averages, genes.use = top10$gene, slim.col.label = TRUE, remove.key = TRUE)
+
+diff_genes_pairwise<-FindMarkers(sub, ident.1 = "d28", ident.2 = "d0")
+# view results
+head(diff_genes_pairwise)
+write.csv(diff_genes_pairwise, file="/Users/fortee/Documents/SINGLE CELL EXPERIMENTS/RNAseq_timeline_postMI/Results/subclustering/subclusters/bytime/diff_genes_d28_d0_Phagoc.csv")
+VlnPlot(sub,features.plot =c("Lyz2","Notch2", "Sparc", "zsgreen", "Cd52", "Cd74"),point.size.use = 0.1)
+RidgePlot(object = sub, features.plot = "Lyz2", nCol = 2, legend.position = "right", single.legend = TRUE, remove.legend = TRUE)
+```
+
+
+```{r}
+ident_use<-"Mt2"#"Cd3d"
+sub<- SubsetData(combined, ident.use = ident_use, subset.raw = T,  do.clean=T )
+sub<-SetIdent(sub, ident.use=sub@meta.data$stim)
+
+cluster.averages <-AverageExpression(sub,return.seurat = TRUE, show.progress = FALSE)
+avg2 <- AverageExpression(sub)
+
+cluster.colmeans<-colMeans(cluster.averages@data[combined@var.genes,])
+##average expression of all genes in a cluster for each time points
+barplot(cluster.colmeans, main = paste("Average Expression for", ident_use ))
+barplot(table(sub@ident), main = paste("Num of cells for",ident_use))
+
+T0_ave<-cluster.averages@data
+as.matrix(T0_ave)
+write.csv(as.matrix(T0_ave), file = "/Users/fortee/Documents/SINGLE CELL EXPERIMENTS/RNAseq_timeline_postMI/Results/subclustering/subclusters/bytime/IR_ave_subset.csv")
+
+
+## differentially expressed genes among all time points
+library(dplyr)
+
+diff_genes<-FindAllMarkers(sub)
+write.csv(diff_genes, file="/Users/fortee/Documents/SINGLE CELL EXPERIMENTS/RNAseq_timeline_postMI/Results/subclustering/subclusters/bytime/diff_genes_timepoints_IR.csv")
+top10 <- diff_genes %>% group_by(cluster) %>% top_n(10, avg_logFC)
+head(top10)
+DoHeatmap(object = cluster.averages, genes.use = top10$gene, slim.col.label = TRUE, remove.key = TRUE)
+##head(diff_genes[diff_genes$cluster=="d7",])$gene
+##head(diff_genes)
+top100 <- diff_genes %>% group_by(cluster) %>% top_n(100, avg_logFC)
+write.csv(top100, file="/Users/fortee/Documents/SINGLE CELL EXPERIMENTS/RNAseq_timeline_postMI/Results/subclustering/subclusters/bytime/diff_genes_timepoints_IR_100.csv")
+
+
+top10 <- diff_genes %>% group_by(cluster) %>% top_n(10, avg_logFC)
+DoHeatmap(object = cluster.averages, genes.use = top10$gene, slim.col.label = TRUE, remove.key = TRUE)
+
+#diff_genes_pairwise<-FindMarkers(sub, ident.1 = "d28", ident.2 = "d0")
+# view results
+#head(diff_genes_pairwise)
+#write.csv(diff_genes_pairwise, file="/Users/fortee/Documents/SINGLE CELL EXPERIMENTS/RNAseq_timeline_postMI/Results/subclustering/subclusters/bytime/diff_genes_d28_d0_IR.csv")
+VlnPlot(sub,features.plot =c("Mt2","Acta2", "Igf1r", "zsgreen", "Cd52", "Cd74"),point.size.use = 0.1)
+RidgePlot(object = sub, features.plot = "Mt2", nCol = 2, legend.position = "right", single.legend = TRUE, remove.legend = TRUE)
+```
+```{r}
+ident_use<-"LateMyofb"#"Cd3d"
+sub<- SubsetData(combined, ident.use = ident_use, subset.raw = T,  do.clean=T )
+sub<-SetIdent(sub, ident.use=sub@meta.data$stim)
+
+cluster.averages <-AverageExpression(sub,return.seurat = TRUE, show.progress = FALSE)
+avg2 <- AverageExpression(sub)
+
+cluster.colmeans<-colMeans(cluster.averages@data[combined@var.genes,])
+##average expression of all genes in a cluster for each time points
+barplot(cluster.colmeans, main = paste("Average Expression for", ident_use ))
+barplot(table(sub@ident), main = paste("Num of cells for",ident_use))
+
+T0_ave<-cluster.averages@data
+as.matrix(T0_ave)
+write.csv(as.matrix(T0_ave), file = "/Users/fortee/Documents/SINGLE CELL EXPERIMENTS/RNAseq_timeline_postMI/Results/subclustering/subclusters/bytime/MFC_ave_subset.csv")
+
+
+## differentially expressed genes among all time points
+library(dplyr)
+
+diff_genes<-FindAllMarkers(sub)
+write.csv(diff_genes, file="/Users/fortee/Documents/SINGLE CELL EXPERIMENTS/RNAseq_timeline_postMI/Results/subclustering/subclusters/bytime/diff_genes_timepoints_MFC.csv")
+top10 <- diff_genes %>% group_by(cluster) %>% top_n(10, avg_logFC)
+head(top10)
+DoHeatmap(object = cluster.averages, genes.use = top10$gene, slim.col.label = TRUE, remove.key = TRUE)
+##head(diff_genes[diff_genes$cluster=="d7",])$gene
+##head(diff_genes)
+top100 <- diff_genes %>% group_by(cluster) %>% top_n(100, avg_logFC)
+write.csv(top100, file="/Users/fortee/Documents/SINGLE CELL EXPERIMENTS/RNAseq_timeline_postMI/Results/subclustering/subclusters/bytime/diff_genes_timepoints_MFC_100.csv")
+
+
+top10 <- diff_genes %>% group_by(cluster) %>% top_n(10, avg_logFC)
+DoHeatmap(object = cluster.averages, genes.use = top10$gene, slim.col.label = TRUE, remove.key = TRUE)
+
+#diff_genes_pairwise<-FindMarkers(sub, ident.1 = "d28", ident.2 = "d0")
+# view results
+#head(diff_genes_pairwise)
+#write.csv(diff_genes_pairwise, file="/Users/fortee/Documents/SINGLE CELL EXPERIMENTS/RNAseq_timeline_postMI/Results/subclustering/subclusters/bytime/diff_genes_d28_d0_IR.csv")
+VlnPlot(sub,features.plot =c("Postn","Acta2", "Cilp", "zsgreen", "Comp", "Thbs4"),point.size.use = 0.1)
+RidgePlot(object = sub, features.plot = "Mt2", nCol = 2, legend.position = "right", single.legend = TRUE, remove.legend = TRUE)
+```
+```{r}
+ident_use<-"FibroII"#"Cd3d"
+sub<- SubsetData(combined, ident.use = ident_use, subset.raw = T,  do.clean=T )
+sub<-SetIdent(sub, ident.use=sub@meta.data$stim)
+
+cluster.averages <-AverageExpression(sub,return.seurat = TRUE, show.progress = FALSE)
+avg2 <- AverageExpression(sub)
+
+cluster.colmeans<-colMeans(cluster.averages@data[combined@var.genes,])
+##average expression of all genes in a cluster for each time points
+barplot(cluster.colmeans, main = paste("Average Expression for", ident_use ))
+barplot(table(sub@ident), main = paste("Num of cells for",ident_use))
+
+T0_ave<-cluster.averages@data
+as.matrix(T0_ave)
+write.csv(as.matrix(T0_ave), file = "/Users/fortee/Documents/SINGLE CELL EXPERIMENTS/RNAseq_timeline_postMI/Results/subclustering/subclusters/bytime/EndD_ave_subset.csv")
+
+
+## differentially expressed genes among all time points
+library(dplyr)
+
+diff_genes<-FindAllMarkers(sub)
+write.csv(diff_genes, file="/Users/fortee/Documents/SINGLE CELL EXPERIMENTS/RNAseq_timeline_postMI/Results/subclustering/subclusters/bytime/diff_genes_timepoints_EndD.csv")
+top10 <- diff_genes %>% group_by(cluster) %>% top_n(10, avg_logFC)
+head(top10)
+DoHeatmap(object = cluster.averages, genes.use = top10$gene, slim.col.label = TRUE, remove.key = TRUE)
+##head(diff_genes[diff_genes$cluster=="d7",])$gene
+##head(diff_genes)
+top100 <- diff_genes %>% group_by(cluster) %>% top_n(100, avg_logFC)
+write.csv(top100, file="/Users/fortee/Documents/SINGLE CELL EXPERIMENTS/RNAseq_timeline_postMI/Results/subclustering/subclusters/bytime/diff_genes_timepoints_EndD_100.csv")
+
+
+top10 <- diff_genes %>% group_by(cluster) %>% top_n(10, avg_logFC)
+DoHeatmap(object = cluster.averages, genes.use = top10$gene, slim.col.label = TRUE, remove.key = TRUE)
+
+#diff_genes_pairwise<-FindMarkers(sub, ident.1 = "d28", ident.2 = "d0")
+# view results
+#head(diff_genes_pairwise)
+#write.csv(diff_genes_pairwise, file="/Users/fortee/Documents/SINGLE CELL EXPERIMENTS/RNAseq_timeline_postMI/Results/subclustering/subclusters/bytime/diff_genes_d28_d0_IR.csv")
+VlnPlot(sub,features.plot =c("Postn","Wisp2", "Cilp", "zsgreen", "Comp", "Thbs4", "1500015O10Rik", "Wif1", "Cthrc1"),point.size.use = 0.1)
+RidgePlot(object = sub, features.plot = "Wif1", nCol = 2, legend.position = "right", single.legend = TRUE, remove.legend = TRUE)
+```
+
+
+
+```{r}
+##to separate by time
+combined<-SetIdent(combined, ident.use=combined@meta.data$stim)
+
+table(combined@ident)
+#SetAllIdent(combine())
+ident_use<-"d0"
+subd0<- SubsetData(combined, ident.use = ident_use, subset.raw = T,  do.clean=T )
+subd0<-SetIdent(subd0, ident.use=subd0@meta.data$CellType_0.5)
+t <- table(subd0@meta.data$CellType_0.5)
+##Files for spring
+data<-subd0@data
+genes<-subd0@data@Dimnames[1]
+time<-as.list(as.character(subd0@meta.data$stim))
+types<-as.list(as.character(subd0@meta.data$CellType_0.5))
+
+writeMM(data,file="/Users/fortee/Documents/SINGLE CELL EXPERIMENTS/RNAseq_timeline_postMI/Data/Spring/FibroD0.mtx")
+write.csv(genes,file="/Users/fortee/Documents/SINGLE CELL EXPERIMENTS/RNAseq_timeline_postMI/Data/Spring/FibroD0Genes.csv",row.names = FALSE)
+write.csv(time,file="/Users/fortee/Documents/SINGLE CELL EXPERIMENTS/RNAseq_timeline_postMI/Data/Spring/FibroD0Time.csv",row.names = FALSE)
+write.csv(types,file="/Users/fortee/Documents/SINGLE CELL EXPERIMENTS/RNAseq_timeline_postMI/Data/Spring/FibroD0Types.csv",row.names = FALSE)
+
+library(dplyr)
+
+diff_genes<-FindAllMarkers(subd0)
+#write.xlsx(diff_genes, "Markerssubd0.xlsx")
+diff_genes<-cbind(diff_genes$gene,diff_genes[,1:ncol(diff_genes)]) 
+    diff_genes<-split(diff_genes, f = diff_genes$cluster )
+    write.xlsx(diff_genes, paste0("d0_markers.xlsx"), sheetName=paste0("cluster ", 1:length(all_markers)-1))
+    getwd()
+##not sure if the following is necessary
+subd0 <- NormalizeData(subd0)
+subd0 <- FindVariableGenes(object = subd0, mean.function = ExpMean, dispersion.function = LogVMR,                               x.low.cutoff = 0.01, x.high.cutoff = 8, y.cutoff = 0.5)
+subd0 <- ScaleData(object = subd0, genes.use =subd0@var.genes)
+subd0 <- RunPCA(object = subd0, pc.genes = subd0@var.genes, pcs.compute = 50)
+PCElbowPlot(subd0,  num.pc = 50)
+
+plot.genesi<-c("Ptprc", "Cd52","Ifit3","Isg15","Dmkn","Wt1","Clu","H2afz","Stmn1","Dkk3","Wif1","Comp","Sfrp2","Thbs4","Postn","Wisp2","Mt2","Angptl4","Notch2", "Lyz2","Cthrc1","Acta2","Pi16", "Cd248","Ly6a","Meox1","Mfap4","Sparcl1","Cilp","Col8a1","Cxcl14","Dpep1", "zsgreen")
+DotPlot(object = subd0, genes.plot = plot.genesi, plot.legend = TRUE, x.lab.rot=TRUE)
+#BuildClusterTree(subd0) not working
+```
+
+```{r}
+
+ident_use<-"d1"
+subd<- SubsetData(combined, ident.use = ident_use, subset.raw = T,  do.clean=T )
+subd<-SetIdent(subd, ident.use=subd@meta.data$CellType_0.5)
+t <- table(subd@meta.data$CellType_0.5)
+
+DotPlot(object = subd, genes.plot = plot.genesi, plot.legend = TRUE, x.lab.rot=TRUE)
+library(dplyr)
+
+diff_genes<-FindAllMarkers(subd)
+
+#write.xlsx(diff_genes, "Markerssubd1.xlsx")
+diff_genes<-cbind(diff_genes$gene,diff_genes[,1:ncol(diff_genes)]) 
+    diff_genes<-split(diff_genes, f = diff_genes$cluster )
+    write.xlsx(diff_genes, paste0("d1_markers.xlsx"), sheetName=paste0("cluster ", 1:length(all_markers)-1))
+    getwd()
+    
+```
+```{r}
+ident_use<-"d3"
+subd<- SubsetData(combined, ident.use = ident_use, subset.raw = T,  do.clean=T )
+subd<-SetIdent(subd, ident.use=subd@meta.data$CellType_0.5)
+t <- table(subd@meta.data$CellType_0.5)
+DotPlot(object = subd, genes.plot = plot.genesi, plot.legend = TRUE, x.lab.rot=TRUE)
+View(t)
+
+library(dplyr)
+
+diff_genes<-FindAllMarkers(subd)
+#write.xlsx(diff_genes, "Markerssubd3.xlsx")
+diff_genes<-cbind(diff_genes$gene,diff_genes[,1:ncol(diff_genes)]) 
+    diff_genes<-split(diff_genes, f = diff_genes$cluster )
+    write.xlsx(diff_genes, paste0("d3_markers.xlsx"), sheetName=paste0("cluster ", 1:length(all_markers)-1))
+    getwd()
+```
+```{r}
+ident_use<-"d5"
+subd<- SubsetData(combined, ident.use = ident_use, subset.raw = T,  do.clean=T )
+subd<-SetIdent(subd, ident.use=subd@meta.data$CellType_0.5)
+t <- table(subd@meta.data$CellType_0.5)
+DotPlot(object = subd, genes.plot = plot.genesi, plot.legend = TRUE, x.lab.rot=TRUE)
+View(t)
+
+library(dplyr)
+
+diff_genes<-FindAllMarkers(subd)
+#write.xlsx(diff_genes, "Markerssubd5.xlsx")
+diff_genes<-cbind(diff_genes$gene,diff_genes[,1:ncol(diff_genes)]) 
+    diff_genes<-split(diff_genes, f = diff_genes$cluster )
+    write.xlsx(diff_genes, paste0("d5_markers.xlsx"), sheetName=paste0("cluster ", 1:length(all_markers)-1))
+    getwd()
+```
+
+```{r}
+ident_use<-"d7"
+subd<- SubsetData(combined, ident.use = ident_use, subset.raw = T,  do.clean=T )
+subd<-SetIdent(subd, ident.use=subd@meta.data$CellType_0.5)
+t <- table(subd@meta.data$CellType_0.5)
+DotPlot(object = subd, genes.plot = plot.genesi, plot.legend = TRUE, x.lab.rot=TRUE)
+View(t)
+
+library(dplyr)
+
+diff_genes<-FindAllMarkers(subd)
+#write.xlsx(diff_genes, "Markerssubd7.xlsx")
+diff_genes<-cbind(diff_genes$gene,diff_genes[,1:ncol(diff_genes)]) 
+    diff_genes<-split(diff_genes, f = diff_genes$cluster )
+    write.xlsx(diff_genes, paste0("d7_markers.xlsx"), sheetName=paste0("cluster ", 1:length(all_markers)-1))
+    getwd()
+```
+
+```{r}
+ident_use<-"d14"
+subd<- SubsetData(combined, ident.use = ident_use, subset.raw = T,  do.clean=T )
+subd<-SetIdent(subd, ident.use=subd@meta.data$CellType_0.5)
+t <- table(subd@meta.data$CellType_0.5)
+DotPlot(object = subd, genes.plot = plot.genesi, plot.legend = TRUE, x.lab.rot=TRUE)
+View(t)
+
+library(dplyr)
+
+diff_genes<-FindAllMarkers(subd)
+#write.xlsx(diff_genes, "Markerssubd14.xlsx")
+diff_genes<-cbind(diff_genes$gene,diff_genes[,1:ncol(diff_genes)]) 
+    diff_genes<-split(diff_genes, f = diff_genes$cluster )
+    write.xlsx(diff_genes, paste0("d14_markers.xlsx"), sheetName=paste0("cluster ", 1:length(all_markers)-1))
+    getwd()
+```
+
+```{r}
+ident_use<-"d28"
+subd<- SubsetData(combined, ident.use = ident_use, subset.raw = T,  do.clean=T )
+subd<-SetIdent(subd, ident.use=subd@meta.data$CellType_0.5)
+t <- table(subd@meta.data$CellType_0.5)
+DotPlot(object = subd, genes.plot = plot.genesi, plot.legend = TRUE, x.lab.rot=TRUE)
+View(t)
+
+library(dplyr)
+
+diff_genes<-FindAllMarkers(subd)
+diff_genes<-cbind(diff_genes$gene,diff_genes[,1:ncol(diff_genes)]) 
+    diff_genes<-split(diff_genes, f = diff_genes$cluster )
+    write.xlsx(diff_genes, paste0("d28_markers.xlsx"), sheetName=paste0("cluster ", 1:length(all_markers)-1))
+    getwd()
+```
+

@@ -1,0 +1,144 @@
+---
+title: "DotPlots Harmony data"
+author: "me"
+date: "2/2/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+library(tidyverse)
+library(assertthat)
+library(Seurat)
+
+#load('harmony_obj_for_elvira.RData')   # loads "result"
+# harmony Seurat object, only contains cells from B6 or 129, homeostasis/sham/day3 only.
+
+wd<-"/Users/fortee/Documents/SINGLE CELL EXPERIMENTS/RNAseq_timeline_postMI/Data"  
+foldername <- "Harmony"
+load(file.path(wd,foldername,"harmony_obj_for_elvira.RData"))
+
+load <- "/Users/fortee/Downloads/harmony_obj_for_elvira.RData"
+
+
+
+result@meta.data$description <- with(result@meta.data, paste0(strain, " ", condition, " ", batch))
+result@meta.data$descriptionF <- factor(result@meta.data$description,
+    levels=c("B6 homeostasis 17010", "B6 sham 17004", "B6 sham 17008", 
+    "B6 MI 17014", "129 MI 18002", "129 sham 18001"))
+
+
+# Tailor for a particular GO term of interest
+go_db <- "/Users/fortee/Documents/SINGLE\\ CELL\\ EXPERIMENTS/RNAseq_timeline_postMI/Data/Harmony/gene_association.mgi_2019_01_14.gz"
+mgi_go <- data.table::fread(cmd=paste0("gunzip -c ", go_db, " | grep -v \"^\\!\""),
+    col.names=c("db", "db_id", "symbol", "qualifier", "go_id", "db_ref", 
+    "evidence", "with", "asp", "dbname", "dbsyn", "dbtype", "taxon", "date", "assigned", 
+    "ext", "prod_id")) %>% as_tibble() %>% 
+    select(symbol, go_id) %>% distinct() %>% arrange(symbol)
+mgi_go_db <- split(mgi_go$symbol, mgi_go$go_id)
+```
+
+
+```{r}
+# Name the clusters something interpretable
+named_ident <- as.character(result@meta.data[, "res.0.6"])
+names(named_ident) <- result@cell.names
+cluster_names <- c("0"="Fibros", "1"="Macs", "2"="Myofb", "3"="ECs", "4"="PLS Fibros", "5"="Fibros", "6"="Monocytes", "7"="End Fibros", "8"="Macs", "9"="B cells", "10"="Granulocytes", "11"="T cells", "12"="Prolif Myofb", "13"="DCs", "14"="Epi", "15"="Prolif Macs", "16"="Mt2 Myofb", "17"="Fibros","19"="SMC/Pericytes", "20"="Mono/Macs", "21"="ECs", "22"="NK", "23"="IFNr", "24"="Lymph ECs", "25"="DCs", "26"="ECs", "27"="DCs myeloid", "28"="Schwann", "29"="B cells", "30"="Mast cells", "31"="B cells")
+for (i in 1:length(cluster_names)) {
+  old_name <- names(cluster_names)[i]
+  new_name <- cluster_names[i]
+  named_ident[named_ident == old_name] <- new_name
+}
+result <- AddMetaData(result, named_ident, "cluster_names")
+result <- SetAllIdent(result, id="cluster_names")
+```
+
+```{r}
+# Subset only macs and myofibroblasts:
+smaller <- SubsetData(result, ident.use=c("Fibros","End Fibros", "PLS Fibros", "Epi", "Macs","Monocytes","Myofb","Mt2 Myofb", "ECs","Lymph ECs", "SMC/Pericytes", "Prolif Myofb"))
+
+```
+
+```{r}
+go_term <-"GO:0005133" #Extracellular matrix glycoproteins#"GO:0010715"#regulation of ECM disassembly #"GO:1901201"# extracellular matrix assembly#"GO:0062023"  #collagen containing matric#"GO:0008237"  # metallopeptidase activity (molecular function)
+# Use care that there are GO terms for 
+# "Molecular function", "Biological process", and "Cellular component"
+assert_that(go_term %in% names(mgi_go_db))
+
+genes_of_interest <- mgi_go_db[[go_term]]
+```
+
+
+```{r cars}
+
+genes <- genes_of_interest[genes_of_interest %in% rownames(smaller@data)]
+write.csv(genes, file="/Users/fortee/Documents/SINGLE CELL EXPERIMENTS/RNAseq_timeline_postMI/Data/Harmony/GO_InflammosomeComplex.csv",row.names = FALSE)
+# Make dotplots for each cluster
+all_clusters <- as.character(unique(smaller@ident))
+for (i in 1:length(all_clusters)) {
+  cluster_num <- all_clusters[i]
+  #cluster_data <- smaller@data
+  cluster_data <- SubsetData(result, ident.use=cluster_num)
+  #cluster_data <- SetAllIdent(cluster_data, id="descriptionF")
+  p <- DotPlot(cluster_data, genes.plot = genes, group.by="descriptionF",
+               cols.use=c("blue", "red"), do.return=TRUE) + coord_flip() + 
+    theme(axis.text.x=element_text(angle=90))
+  plotname <- paste0(make.names(go_term), "_cluster", cluster_num, "_dotplot.png")
+  ggsave(plotname, plot=p, height=3+length(genes)/8, width=6)
+}
+
+getwd()
+```
+
+```{r}
+
+##SELECTED GENES REPLACE LINE genes <- genes_of_interest[genes_of_interest %in% rownames(result@data)]
+
+genes<-scan(file="~/Downloads/test.csv", what="character")
+genes<-c("Il18","Ifng","Dnaja3")
+setwd("/Users/fortee/Documents/SINGLE CELL EXPERIMENTS/RNAseq_timeline_postMI/Data/Harmony")
+all_clusters <- as.character(unique(smaller@ident))
+for (i in 1:length(all_clusters)) {
+  cluster_num <- all_clusters[i]
+  #cluster_data <- smaller@data
+  cluster_data <- SubsetData(smaller, ident.use=cluster_num)
+  #cluster_data <- SetAllIdent(cluster_data, id="descriptionF")
+  p <- DotPlot(cluster_data, genes.plot = genes, group.by="descriptionF",
+               cols.use=c("blue", "red"), do.return=TRUE) + coord_flip() + 
+    theme(axis.text.x=element_text(angle=90))
+  plotname <- paste0(make.names("Monocle_genes"), "_cluster", cluster_num, "_dotplot.png")
+  ggsave(plotname, plot=p, height=3+length(genes)/8, width=6)
+}
+
+
+
+clusters <- c("0","4","5", "7")   # EpiD, PLS and EndD
+for (i in 1:length(clusters)) {
+  cluster_num <- clusters[i]
+  cluster_data <- SubsetData(result, ident.use=cluster_num)
+  #cluster_data <- SetAllIdent(cluster_data, id="descriptionF")
+  p <- DotPlot(cluster_data, genes.plot=genes, group.by="descriptionF",
+               cols.use=c("blue", "red"), do.return=TRUE) + coord_flip() + 
+    theme(axis.text.x=element_text(angle=90))
+  plotname <- paste0(make.names("genesMonoclone"), "_cluster", cluster_num, "_dotplot.png")
+  ggsave(plotname, plot=p, height=3+length(genes)/8, width=6)
+}
+
+for (i in 1:length(clusters)) {
+  cluster_num <- clusters[i]
+  cluster_data <- SubsetData(result, ident.use=cluster_num)
+  #cluster_data <- SetAllIdent(cluster_data, id="descriptionF")
+  p <- heatmap(cluster_data, genes.plot=genes, group.by="descriptionF",
+               cols.use=c("blue", "red"), do.return=TRUE) + coord_flip() + 
+    theme(axis.text.x=element_text(angle=90))
+  plotname <- paste0(make.names("genesMonoclone"), "_cluster", cluster_num, "_dotplot.png")
+  ggsave(plotname, plot=p, height=3+length(genes)/8, width=6)
+}
+
+DoHeatmap(object = cluster_data, genes.use = genes, slim.col.label = TRUE, remove.key = TRUE)
+```
+
+```{r setup, include=FALSE}
+
+
+```
+

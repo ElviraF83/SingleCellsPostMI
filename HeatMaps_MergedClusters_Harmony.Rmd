@@ -1,0 +1,450 @@
+---
+title: "Make HeatMaps Merge clusters"
+author: "me"
+date: "2/8/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+library(tidyverse)
+library(assertthat)
+library(Seurat)
+library(readxl)
+library(pheatmap)
+setwd('/Users/fortee/Documents/SINGLE CELL EXPERIMENTS/RNAseq_timeline_postMI/Data/Harmony')
+
+load('harmony_obj_for_elvira.RData')   # loads "result"
+# harmony Seurat object, only contains cells from B6 or 129, homeostasis/sham/day3 only.
+result@meta.data$description <- with(result@meta.data, paste0(strain, " ", condition, " ", batch))
+result@meta.data$descriptionF <- factor(result@meta.data$description,
+ levels=c("129 MI 18002","B6 MI 17014", "129 sham 18001", "B6 sham 17004", "B6 sham 17008"))  
+#levels=c("B6 homeostasis 17010", "B6 sham 17004", "B6 sham 17008", 
+   # "B6 MI 17014", "129 MI 18002", "129 sham 18001")) 
+#
+acute_phase_response <- read_csv("/Users/fortee/Documents/SINGLE CELL EXPERIMENTS/RNAseq_timeline_postMI/Data/Harmony/AcutePhaseResponseHEATMAPS.csv") %>% select(1:4) %>%
+	mutate(Label=ifelse(is.na(Label), paste0(`GO Term description`, " rest"), Label))
+acute_phase_responseN <- read_csv("/Users/fortee/Documents/SINGLE CELL EXPERIMENTS/RNAseq_timeline_postMI/Data/Harmony/AcutePhaseResponseHEATMAPSF.csv") %>% select(1:4) %>%
+	mutate(Label=ifelse(is.na(Label), paste0(`GO Term description`, " rest"), Label))
+ecm <- read_excel("/Users/fortee/Documents/SINGLE CELL EXPERIMENTS/RNAseq_timeline_postMI/Data/Harmony/ECM related GO terms for HEATMAP_A.xlsx") %>% select(1:4) %>%
+mutate(Label=ifelse(is.na(Label), paste0(`GO Term description`, " rest"), Label))
+ecm2<- read_excel("/Users/fortee/Documents/SINGLE CELL EXPERIMENTS/RNAseq_timeline_postMI/Data/Harmony/ECM related GO terms for HEATMAP_B.xlsx") %>% select(1:4) %>%
+mutate(Label=ifelse(is.na(Label), paste0(`GO Term description`, " rest"), Label))
+ecm3<- read_excel("/Users/fortee/Documents/SINGLE CELL EXPERIMENTS/RNAseq_timeline_postMI/Data/Harmony/ECM related GO terms for HEATMAP_IPA.xlsx") %>% select(1:4) %>%
+mutate(Label=ifelse(is.na(Label), paste0(`GO Term description`, " rest"), Label))
+ecm4<- read_excel("/Users/fortee/Documents/SINGLE CELL EXPERIMENTS/RNAseq_timeline_postMI/Data/Harmony/ECM related GO terms for HEATMAP_IPA_TEST.xlsx") %>% select(1:4) %>%
+mutate(Label=ifelse(is.na(Label), paste0(`GO Term description`, " rest"), Label))
+
+mmps<- read_excel("/Users/fortee/Documents/SINGLE CELL EXPERIMENTS/RNAseq_timeline_postMI/Data/Harmony/MMPs.xlsx") %>% select(1:4) %>%
+mutate(Label=ifelse(is.na(Label), paste0(`GO Term description`, " rest"), Label))
+
+rupture <- read_excel("/Users/fortee/Documents/SINGLE CELL EXPERIMENTS/RNAseq_timeline_postMI/Data/Harmony/genesInvolvedRupture.xlsx") %>% select(1:4) %>%
+mutate(Label=ifelse(is.na(Label), paste0(`GO Term description`, " rest"), Label))
+
+
+agt <- read_csv("/Users/fortee/Documents/SINGLE CELL EXPERIMENTS/RNAseq_timeline_postMI/Data/Harmony/RASHeatmapsB.csv") %>% select(1:4) %>%
+ mutate(Label=ifelse(is.na(Label), paste0(`GO Term description`, " rest"), Label))
+PantherGO<-read_excel("/Users/fortee/Documents/SINGLE CELL EXPERIMENTS/RNAseq_timeline_postMI/Data/Harmony/PantherGO terms for HEATMAP.xlsx") %>% select(1:4) %>%
+ mutate(Label=ifelse(is.na(Label), paste0(`GO Term description`, " rest"), Label))
+IPA_canonical <- read_excel("/Users/fortee/Documents/SINGLE CELL EXPERIMENTS/RNAseq_timeline_postMI/Data/Harmony/TEST_IPA.xlsx") %>% select(1:4) %>%
+mutate(Label=ifelse(is.na(Label), paste0(`GO Term description`, " rest"), Label)) 
+IPA_2 <- read_excel("/Users/fortee/Documents/SINGLE CELL EXPERIMENTS/RNAseq_timeline_postMI/Data/Harmony/TEST_IPA2.xlsx") %>% select(1:4) %>%
+mutate(Label=ifelse(is.na(Label), paste0(`GO Term description`, " rest"), Label)) 
+
+FibrosisE1 <- read_excel("/Users/fortee/Documents/SINGLE CELL EXPERIMENTS/RNAseq_timeline_postMI/Data/Harmony/FibrosisExtracellular1.xlsx") %>% select(1:4) %>%
+mutate(Label=ifelse(is.na(Label), paste0(`GO Term description`, " rest"), Label)) 
+FibrosisE2 <- read_excel("/Users/fortee/Documents/SINGLE CELL EXPERIMENTS/RNAseq_timeline_postMI/Data/Harmony/FibrosisExtracellular2.xlsx") %>% select(1:4) %>%
+mutate(Label=ifelse(is.na(Label), paste0(`GO Term description`, " rest"), Label)) 
+FibrosisC <- read_excel("/Users/fortee/Documents/SINGLE CELL EXPERIMENTS/RNAseq_timeline_postMI/Data/Harmony/FibrosisCytosol.xlsx") %>% select(1:4) %>%
+mutate(Label=ifelse(is.na(Label), paste0(`GO Term description`, " rest"), Label)) 
+FibrosisN <- read_excel("/Users/fortee/Documents/SINGLE CELL EXPERIMENTS/RNAseq_timeline_postMI/Data/Harmony/FibrosisNucleus.xlsx") %>% select(1:4) %>%
+mutate(Label=ifelse(is.na(Label), paste0(`GO Term description`, " rest"), Label)) 
+FibrosisP <- read_excel("/Users/fortee/Documents/SINGLE CELL EXPERIMENTS/RNAseq_timeline_postMI/Data/Harmony/FibrosisPlasmaMembrane.xlsx") %>% select(1:4) %>%
+mutate(Label=ifelse(is.na(Label), paste0(`GO Term description`, " rest"), Label)) 
+
+
+gp6<- read_excel("/Users/fortee/Documents/SINGLE CELL EXPERIMENTS/RNAseq_timeline_postMI/Data/Harmony/Gp6.xlsx") %>% select(1:4) %>%
+mutate(Label=ifelse(is.na(Label), paste0(`GO Term description`, " rest"), Label))
+ags<- read_excel("/Users/fortee/Documents/SINGLE CELL EXPERIMENTS/RNAseq_timeline_postMI/Data/Harmony/Axonal guidance Signalling pathway.xlsx") %>% select(1:4) %>%
+mutate(Label=ifelse(is.na(Label), paste0(`GO Term description`, " rest"), Label))
+apelin<- read_excel("/Users/fortee/Documents/SINGLE CELL EXPERIMENTS/RNAseq_timeline_postMI/Data/Harmony/ApelinRelated.xlsx") %>% select(1:4) %>%
+mutate(Label=ifelse(is.na(Label), paste0(`GO Term description`, " rest"), Label))
+ang<- read_excel("/Users/fortee/Documents/SINGLE CELL EXPERIMENTS/RNAseq_timeline_postMI/Data/Harmony/AgtFibrosisRelated.xlsx") %>% select(1:4) %>%
+mutate(Label=ifelse(is.na(Label), paste0(`GO Term description`, " rest"), Label))
+#Inflam<-read_excel("/Users/fortee/Documents/SINGLE CELL EXPERIMENTS/RNAseq_timeline_postMI/Data/Harmony/GO_PantherInflResp.csv")%>% select(1:4) %>%
+#mutate(Label=ifelse(is.na(Label), paste0(`GO Term description`, " rest"), Label)) 
+#ecm_genes <- read_excel("/Users/fortee/Documents/SINGLE CELL EXPERIMENTS/RNAseq_timeline_postMI/Data/Harmony/Split/ECM tensile strenght .xlsx") %>% select(1:4) %>%
+#	mutate(Label=ifelse(is.na(Label), paste0(`GO Term description`, " rest"), Label))
+#coll_matrix<-read_csv("/Users/fortee/Documents/SINGLE CELL EXPERIMENTS/RNAseq_timeline_postMI/Data/Harmony/Collagen ContMatrix Split for heatMap.csv")%>% select(1:4) %>%
+	#mutate(Label=ifelse(is.na(Label), paste0(`GO Term description`, " rest"), Label))
+#ECM tensile strenght .xlsx
+```
+
+
+
+```{r cars}
+# Name the clusters something interpretable
+named_ident <- as.character(result@meta.data[, "res.0.6"])
+names(named_ident) <- result@cell.names
+#cluster_names <- c("0"="EpiFibros", "1"="MonoMacro", "2"="Myofb", "3"="ECs", "4"="PLS Fibros", "5"="EpiFibros", "6"="MonoMacro", "7"="End Fibros", "8"="MonoMacro", "9"="B cells", "10"="Granulocytes", "11"="T cells", "12"="Myofb", "13"="DCs", "14"="Epi", "15"="MonoMacro", "16"="Myofb", "17"="EpiFibros","19"="SMC/Pericytes", "20"="MonoMacro", "21"="ECs", "22"="NK", "23"="IFNr", "24"="Lymph ECs", "25"="DCs", "26"="ECs", "27"="DCs myeloid", "28"="Schwann", "29"="B cells", "30"="Mast cells", "31"="B cells")
+##FOR SUBSET
+cluster_names <- c("0"="EpiFibros", "1"="MonoMacro", "2"="PLS Fibros", "3"="Myofb", "4"="ECs", "5"="MonoMacro", "6"="End Fibros", "7"="EpiFibros", "8"="MonoMacro", "9"="B cells", "10"="DCs", "11"="Myofb", "12"="NK_T", "13"="Myofb", "14"="Epi", "15"="Granulocytes", "16"="MonoMacro", "17"="EpiFibros","19"="SMC/Pericytes", "20"="ECs", "21"="ECs", "22"="IFNr", "23"="ECs", "24"="DCs", "25"="DCs", "26"="Schwann")
+##FOR Aggregate
+cluster_names <- c("0"="FibrosMyofb", "1"="MonoMacro", "2"="FibrosMyofb", "3"="FibrosMyofb", "4"="ECs", "5"="MonoMacro", "6"="FibrosMyofb", "7"="FibrosMyofb", "8"="MonoMacro", "9"="B cells", "10"="DCs", "11"="FibrosMyofb", "12"="NK_T", "13"="FibrosMyofb", "14"="Epi", "15"="Granulocytes", "16"="MonoMacro", "17"="Fibrocytes","18"="Mast cells","19"="SMC/Pericytes", "20"="ECs", "21"="ECs", "22"="IFNr", "23"="ECs", "24"="DCs", "25"="DCs", "26"="Schwann")
+for (i in 1:length(cluster_names)) {
+  old_name <- names(cluster_names)[i]
+  new_name <- cluster_names[i]
+  named_ident[named_ident == old_name] <- new_name
+}
+result <- AddMetaData(result, named_ident, "cluster_names")
+result <- SetAllIdent(result, id="cluster_names")
+
+#TSNEPlot(result, do.label = T, do.return = T, pt.size = 0.5, ,width=1200, height = 750, units = "px",pointsize = 12.5, res=600, font=2)
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r pressure, echo=FALSE}
+all_clusters <- as.character(unique(result@ident))
+#clusters <- c("EpiFibros", "Epi", "End Fibros", "PLS Fibros")   # Mt2 cluster
+#clusters <- "Myofb"
+#FOR SUBSETS# clusters <- c("EpiFibros", "Epi", "End Fibros", "PLS Fibros", "Myofb") 
+#for aggregate
+clusters<-"FibrosMyofb"
+#clusters<-"MonoMacro"
+groups <- mmps# whatever data.frame contains Gene and Label
+gene_col <- grep("^Gene", colnames(groups), ignore.case=TRUE, value=TRUE)  # get column name containing gene name
+#summary_function <- function(x) {
+#	apply(x, 2, median)
+#}
+
+summary_function <- function(x) {
+apply(x, 2, sum, na.rm=T)
+}
+sample_levels <-c("129 MI MF18002","B6 MI MF17014", "129 sham MF18001", "B6 sham MF17004", "B6 sham MF17008")
+#sample_levels <- c("B6 sham 17004", "B6 sham 17008","B6 MI 17014","129 MI 18002", "129 sham 18001")
+#sample_levels <- c("B6 homeostasis 17010", "B6 sham 17004", "B6 sham 17008", 
+  #  "B6 MI 17014", "129 MI 18002", "129 sham 18001")
+
+###Filter unique genes
+for (i in 1:length(clusters)) {
+  cluster_num <-clusters[i]
+  #avg_expr_cluster <- avg_expr[, cluster_num, drop=FALSE]
+  cluster_data <- SubsetData(result, ident.use=cluster_num)
+  cluster_data <- SetAllIdent(cluster_data, id="description")
+  
+  genes_to_use <- unique(groups[[gene_col]])
+  genes_to_use <- genes_to_use[genes_to_use %in% rownames(cluster_data@data)]
+  genes_to_use <- genes_to_use[genes_to_use %in% y]
+  
+  avg_expr <- AverageExpression(cluster_data, genes.use=genes_to_use)
+ 
+  group_labels <- unique(groups$Label)
+  genes <- split(groups[[gene_col]], f=groups$Label)
+  
+  expression_matrices <- lapply(genes, function(gene_names) avg_expr[gene_names, , drop=FALSE])
+  expression_summaries <- lapply(expression_matrices, summary_function)
+  to_plot <- do.call("rbind", expression_summaries)[, sample_levels]
+  # Remove rows that are not variable:
+  to_plot <- to_plot[apply(to_plot, 1, sd) > 0, ]
+ 
+  # Uncomment rows below to save plotname <- paste0(make.names("genesMonoclone"), "_cluster", cluster_num, "_dotplot.png")
+ # filename <- paste0(make.names('IPAFibrosisCytosolTest_'), clusters[i], '.png')
+# png(filename, width=0.1*ncol(to_plot) + 7, height=0.2*nrow(to_plot)+4 , units='in', res=150)
+  pheatmap(to_plot, scale='row', cluster_rows=TRUE, cluster_cols=FALSE)
+  dev.off()
+ # getwd()
+}
+#png(filename, width=0.1*ncol(to_plot) + 7, height=0.1*nrow(to_plot) + 4, units='in', res=150)
+pheatmap(to_plot, scale='row', cluster_rows=TRUE, cluster_cols=FALSE)
+
+
+VlnPlot(cluster_data, features.plot = genes_to_use,  x.lab.rot = TRUE)
+
+genes_to_use <- c("Timp3","Sparc","Fstl1","Tp53","Mapk3")
+
+genes_to_use <- genes_to_use[genes_to_use %in% rownames(cluster_data@data)]
+avg_expr <- AverageExpression(cluster_data, genes.use=genes_to_use)
+avg_expr
+
+genes_to_use <- c("Cx3cr1","Ccr2","Mt2")
+genes_to_use <- genes_to_use[genes_to_use %in% rownames(result@data)]
+avg_expr <- AverageExpression(result, genes.use=genes_to_use)
+avg_expr
+```
+
+```{r}
+genes_to_use <- grep("^Timp", rownames(cluster_data@data), value=T)
+genes_to_use
+ avg_expr <- AverageExpression(cluster_data, genes.use=genes_to_use)
+ avg_expr
+
+```
+
+```{r}
+for (i in 1:length(clusters)) {
+  cluster_num <-clusters[i]
+  #avg_expr_cluster <- avg_expr[, cluster_num, drop=FALSE]
+  cluster_data <- SubsetData(result, ident.use=cluster_num)
+  cluster_data <- SetAllIdent(cluster_data, id="description")
+  
+  #genes_to_use <- unique(groups[[gene_col]])
+  #genes_to_use <- genes_to_use[genes_to_use %in% rownames(cluster_data@data)]
+  #genes_to_use <- genes_to_use[genes_to_use %in% y]
+  genes_to_use <- c("Mmp9","Mmp2","Timp3","Sparc","Fstl1","Tp53","Plau","Mapk3")
+genes_to_use <- genes_to_use[genes_to_use %in% rownames(cluster_data@data)]
+  avg_expr <- AverageExpression(cluster_data, genes.use=genes_to_use)
+ 
+  #group_labels <- unique(groups$Label)
+ # genes <- split(groups[[gene_col]], f=groups$Label)
+  
+  expression_matrices <- lapply(genes, function(gene_names) avg_expr[gene_names, , drop=FALSE])
+  expression_summaries <- lapply(expression_matrices, summary_function)
+  to_plot <- do.call("rbind", expression_matrices)[, sample_levels]
+  # Remove rows that are not variable:
+  #to_plot <- to_plot[apply(to_plot, 1, sd) > 0, ]
+ 
+  # Uncomment rows below to save plotname <- paste0(make.names("genesMonoclone"), "_cluster", cluster_num, "_dotplot.png")
+ # filename <- paste0(make.names('IPAFibrosisCytosolTest_'), clusters[i], '.png')
+# png(filename, width=0.1*ncol(to_plot) + 7, height=0.2*nrow(to_plot)+4 , units='in', res=150)
+  pheatmap(to_plot, scale='row', cluster_rows=TRUE, cluster_cols=FALSE)
+  dev.off()
+ # getwd()
+}
+#png(filename, width=0.1*ncol(to_plot) + 7, height=0.1*nrow(to_plot) + 4, units='in', res=150)
+pheatmap(to_plot, scale='row', cluster_rows=TRUE, cluster_cols=FALSE)
+
+genes_to_use <- c("Mmp9","Mmp2","Timp3","Sparc","Fstl1","Tp53","Plau","Mapk3")
+genes_to_use <- genes_to_use[genes_to_use %in% rownames(cluster_data@data)]
+avg_expr <- AverageExpression(cluster_data, genes.use=genes_to_use)
+avg_expr
+```
+
+
+```{r}
+library(tidyverse)
+library(assertthat)
+library(Seurat)
+
+#load('harmony_obj_for_elvira.RData')   # loads "result"
+# harmony Seurat object, only contains cells from B6 or 129, homeostasis/sham/day3 only.
+
+go_db <- "/Users/fortee/Documents/SINGLE\\ CELL\\ EXPERIMENTS/RNAseq_timeline_postMI/Data/Harmony/gene_association.mgi_2019_01_14.gz"
+mgi_go <- data.table::fread(cmd=paste0("gunzip -c ", go_db, " | grep -v \"^\\!\""),
+    col.names=c("db", "db_id", "symbol", "qualifier", "go_id", "db_ref", 
+    "evidence", "with", "asp", "dbname", "dbsyn", "dbtype", "taxon", "date", "assigned", 
+    "ext", "prod_id")) %>% as_tibble() %>% 
+    select(symbol, go_id) %>% distinct() %>% arrange(symbol)
+mgi_go_db <- split(mgi_go$symbol, mgi_go$go_id)
+go_term <-"GO:0030020" #Extracellular matrix glycoproteins#"GO:0010715"#regulation of ECM disassembly #"GO:1901201"# extracellular matrix assembly#"GO:0062023"  #collagen containing matric#"GO:0008237"  # metallopeptidase activity (molecular function)
+# Use care that there are GO terms for 
+# "Molecular function", "Biological process", and "Cellular component"
+assert_that(go_term %in% names(mgi_go_db))
+
+genes_of_interest <- mgi_go_db[[go_term]]
+genes <- genes_of_interest[genes_of_interest %in% rownames(result@data)]
+#write.csv(genes, file="/Users/fortee/Documents/SINGLE CELL EXPERIMENTS/RNAseq_timeline_postMI/Data/Harmony/GO_InflammosomeComplex.csv",row.names = FALSE)
+# Make dotplots for each cluster
+clusters <- c("EpiFibros", "Epi", "End Fibros", "PLS Fibros", "Myofb") 
+for (i in 1:length(clusters)) {
+  cluster_num <- clusters[i]
+  #cluster_data <- smaller@data
+  cluster_data <- SubsetData(result, ident.use=cluster_num)
+  #cluster_data <- SetAllIdent(cluster_data, id="descriptionF")
+  p <- DotPlot(cluster_data, genes.plot = genes, group.by="descriptionF",
+               cols.use=c("blue", "red"), do.return=TRUE, plot.legend=TRUE) + coord_flip() + 
+    theme(axis.text.x=element_text(angle=90))
+  plotname <- paste0(make.names(go_term), "_Tensileclusters", cluster_num, "_dotplot.pdf" )
+  ggsave(plotname, plot=p, height=3+length(genes)/8, width=6)
+}
+
+```
+
+```{r}
+all_clusters <- as.character(unique(result@ident))
+clusters <- c("MonoMacro")   # Mt2 cluster
+groups <- ecm  # whatever data.frame contains Gene and Label
+gene_col <- grep("^Gene", colnames(groups), ignore.case=TRUE, value=TRUE)  # get column name containing gene name
+summary_function <- function(x) {
+	apply(x, 2, median)
+}
+sample_levels <- c("B6 sham 17004", "B6 sham 17008", 
+    "B6 MI 17014", "129 MI 18002", "129 sham 18001")
+#sample_levels <- c("B6 homeostasis 17010", "B6 sham 17004", "B6 sham 17008", 
+  #  "B6 MI 17014", "129 MI 18002", "129 sham 18001")
+for (i in 1:length(clusters)) {
+    cluster_num <- clusters[i]
+    #avg_expr_cluster <- avg_expr[, cluster_num, drop=FALSE]
+    cluster_data <- SubsetData(result, ident.use=cluster_num)
+    cluster_data <- SetAllIdent(cluster_data, id="description")
+    avg_expr <- AverageExpression(cluster_data, genes.use=unique(groups[[gene_col]]))
+ 	group_labels <- unique(groups$Label)
+ 	genes <- split(groups[[gene_col]], f=groups$Label)
+ 	expression_matrices <- lapply(genes, function(gene_names) avg_expr[gene_names, , drop=FALSE])
+ 	expression_summaries <- lapply(expression_matrices, summary_function)
+ 	to_plot <- do.call("rbind", expression_summaries)[, sample_levels]
+ 	# Remove rows that are not variable:
+ 	to_plot <- to_plot[apply(to_plot, 1, sd) > 0, ]
+ 	
+ 	# Uncomment rows below to save
+ 	filename <- "/Users/fortee/Documents/SINGLE CELL EXPERIMENTS/RNAseq_timeline_postMI/HarmonyHeatMAPS/Test.png"
+ 	png(filename, width=0.1*ncol(to_plot) + 7, height=0.1*nrow(to_plot) + 4, units='in', res=150)
+ 	pheatmap(to_plot, scale='row', cluster_rows=TRUE, cluster_cols=FALSE)
+ 	#dev.off()
+}
+```
+
+```{r}
+all_clusters <- as.character(unique(result@ident))
+clusters <- c("Myofb")   # Mt2 cluster
+groups <- ecm_genes  # whatever data.frame contains Gene and Label
+gene_col <- grep("^Gene", colnames(groups), ignore.case=TRUE, value=TRUE)  # get column name containing gene name
+summary_function <- function(x) {
+	apply(x, 2, median)
+}
+sample_levels <- c("B6 sham 17004", "B6 sham 17008", 
+    "B6 MI 17014", "129 MI 18002", "129 sham 18001")
+#sample_levels <- c("B6 homeostasis 17010", "B6 sham 17004", "B6 sham 17008", 
+  #  "B6 MI 17014", "129 MI 18002", "129 sham 18001")
+for (i in 1:length(clusters)) {
+    cluster_num <- clusters[i]
+    #avg_expr_cluster <- avg_expr[, cluster_num, drop=FALSE]
+    cluster_data <- SubsetData(result, ident.use=cluster_num)
+    cluster_data <- SetAllIdent(cluster_data, id="description")
+    avg_expr <- AverageExpression(cluster_data, genes.use=unique(groups[[gene_col]]))
+ 	group_labels <- unique(groups$Label)
+ 	genes <- split(groups[[gene_col]], f=groups$Label)
+ 	expression_matrices <- lapply(genes, function(gene_names) avg_expr[gene_names, , drop=FALSE])
+ 	expression_summaries <- lapply(expression_matrices, summary_function)
+ 	to_plot <- do.call("rbind", expression_summaries)[, sample_levels]
+ 	# Remove rows that are not variable:
+ 	to_plot <- to_plot[apply(to_plot, 1, sd) > 0, ]
+ 	
+ 	# Uncomment rows below to save
+ 	filename <- "/Users/fortee/Documents/SINGLE CELL EXPERIMENTS/RNAseq_timeline_postMI/HarmonyHeatMAPS/IPA.png"
+ 	png(filename, width=0.1*ncol(to_plot) + 7, height=0.1*nrow(to_plot) + 4, units='in', res=150)
+ 	pheatmap(to_plot, scale='row', cluster_rows=TRUE, cluster_cols=FALSE)
+ 	#dev.off()
+}
+```
+
+```{r}
+all_clusters <- as.character(unique(result@ident))
+clusters <- c("EpiFibros")   # Mt2 cluster
+groups <- ecm_genes  # whatever data.frame contains Gene and Label
+gene_col <- grep("^Gene", colnames(groups), ignore.case=TRUE, value=TRUE)  # get column name containing gene name
+summary_function <- function(x) {
+	apply(x, 2, median)
+}
+sample_levels <- c("B6 sham 17004", "B6 sham 17008", 
+    "B6 MI 17014", "129 MI 18002", "129 sham 18001")
+#sample_levels <- c("B6 homeostasis 17010", "B6 sham 17004", "B6 sham 17008", 
+  #  "B6 MI 17014", "129 MI 18002", "129 sham 18001")
+for (i in 1:length(clusters)) {
+    cluster_num <- clusters[i]
+    #avg_expr_cluster <- avg_expr[, cluster_num, drop=FALSE]
+    cluster_data <- SubsetData(result, ident.use=cluster_num)
+    cluster_data <- SetAllIdent(cluster_data, id="description")
+    avg_expr <- AverageExpression(cluster_data, genes.use=unique(groups[[gene_col]]))
+ 	group_labels <- unique(groups$Label)
+ 	genes <- split(groups[[gene_col]], f=groups$Label)
+ 	expression_matrices <- lapply(genes, function(gene_names) avg_expr[gene_names, , drop=FALSE])
+ 	expression_summaries <- lapply(expression_matrices, summary_function)
+ 	to_plot <- do.call("rbind", expression_summaries)[, sample_levels]
+ 	# Remove rows that are not variable:
+ 	to_plot <- to_plot[apply(to_plot, 1, sd) > 0, ]
+ 	
+ 	# Uncomment rows below to save
+ 	filename <- "/Users/fortee/Documents/SINGLE CELL EXPERIMENTS/RNAseq_timeline_postMI/HarmonyHeatMAPS/EpiFibrosTensileGenes.png"
+ 	png(filename, width=0.1*ncol(to_plot) + 7, height=0.1*nrow(to_plot) + 4, units='in', res=150)
+ 	pheatmap(to_plot, scale='row', cluster_rows=TRUE, cluster_cols=FALSE)
+ 	#dev.off()
+}
+```
+
+```{r}
+all_clusters <- as.character(unique(result@ident))
+clusters <- c("EpiFibros")   # Mt2 cluster
+groups <- ecm_genes  # whatever data.frame contains Gene and Label
+gene_col <- grep("^Gene", colnames(groups), ignore.case=TRUE, value=TRUE)  # get column name containing gene name
+summary_function <- function(x) {
+	apply(x, 2, median)
+}
+sample_levels <- c("B6 sham 17004", "B6 sham 17008", 
+    "B6 MI 17014", "129 MI 18002", "129 sham 18001")
+#sample_levels <- c("B6 homeostasis 17010", "B6 sham 17004", "B6 sham 17008", 
+  #  "B6 MI 17014", "129 MI 18002", "129 sham 18001")
+for (i in 1:length(clusters)) {
+    cluster_num <- clusters[i]
+    #avg_expr_cluster <- avg_expr[, cluster_num, drop=FALSE]
+    cluster_data <- SubsetData(result, ident.use=cluster_num)
+    cluster_data <- SetAllIdent(cluster_data, id="description")
+    avg_expr <- AverageExpression(cluster_data, genes.use=unique(groups[[gene_col]]))
+ 	group_labels <- unique(groups$Label)
+ 	genes <- split(groups[[gene_col]], f=groups$Label)
+ 	expression_matrices <- lapply(genes, function(gene_names) avg_expr[gene_names, , drop=FALSE])
+ 	expression_summaries <- lapply(expression_matrices, summary_function)
+ 	to_plot <- do.call("rbind", expression_summaries)[, sample_levels]
+ 	# Remove rows that are not variable:
+ 	to_plot <- to_plot[apply(to_plot, 1, sd) > 0, ]
+ 	
+ 	# Uncomment rows below to save
+ 	filename <- "/Users/fortee/Documents/SINGLE CELL EXPERIMENTS/RNAseq_timeline_postMI/HarmonyHeatMAPS/EpiFibrosTensileGenes.png"
+ 	png(filename, width=0.1*ncol(to_plot) + 7, height=0.1*nrow(to_plot) + 4, units='in', res=150)
+ 	pheatmap(to_plot, scale='none', cluster_rows=TRUE, cluster_cols=FALSE)
+ 	#pheatmap(to_plot, scale='row', cluster_rows=TRUE, cluster_cols=FALSE)
+ 	#dev.off()
+}
+```
+
+```{r}
+all_clusters <- as.character(unique(result@ident))
+clusters <- c("EndFibros")   # Mt2 cluster
+groups <- ecm_genes  # whatever data.frame contains Gene and Label
+gene_col <- grep("^Gene", colnames(groups), ignore.case=TRUE, value=TRUE)  # get column name containing gene name
+summary_function <- function(x) {
+	apply(x, 2, median)
+}
+sample_levels <- c("B6 sham 17004", "B6 sham 17008", 
+    "B6 MI 17014", "129 MI 18002", "129 sham 18001")
+#sample_levels <- c("B6 homeostasis 17010", "B6 sham 17004", "B6 sham 17008", 
+  #  "B6 MI 17014", "129 MI 18002", "129 sham 18001")
+for (i in 1:length(clusters)) {
+    cluster_num <- clusters[i]
+    #avg_expr_cluster <- avg_expr[, cluster_num, drop=FALSE]
+    cluster_data <- SubsetData(result, ident.use=cluster_num)
+    cluster_data <- SetAllIdent(cluster_data, id="description")
+    avg_expr <- AverageExpression(cluster_data, genes.use=unique(groups[[gene_col]]))
+ 	group_labels <- unique(groups$Label)
+ 	genes <- split(groups[[gene_col]], f=groups$Label)
+ 	expression_matrices <- lapply(genes, function(gene_names) avg_expr[gene_names, , drop=FALSE])
+ 	expression_summaries <- lapply(expression_matrices, summary_function)
+ 	to_plot <- do.call("rbind", expression_summaries)[, sample_levels]
+ 	# Remove rows that are not variable:
+ 	to_plot <- to_plot[apply(to_plot, 1, sd) > 0, ]
+ 	
+ 	# Uncomment rows below to save
+ 	filename <- "/Users/fortee/Documents/SINGLE CELL EXPERIMENTS/RNAseq_timeline_postMI/HarmonyHeatMAPS/EndFibrosTensileGenes.png"
+ 	png(filename, width=0.1*ncol(to_plot) + 7, height=0.1*nrow(to_plot) + 4, units='in', res=150)
+ 	pheatmap(to_plot, scale='row', cluster_rows=TRUE, cluster_cols=FALSE)
+ 	#dev.off()
+}
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+```{r}
+genes<-c("Adam10","Adam19","Adamts1","Adamts10","Adamts12","Adamts15","Adamts17","Adamts2","Adamts4","Adamts5","Adamts8","Adamtsl1","Adamtsl5")
+clusters <- c("EpiFibros","Myofb")   # EpiD, PLS and EndD
+for (i in 1:length(clusters)) {
+  cluster_num <- clusters[i]
+  cluster_data <- SubsetData(result, ident.use=cluster_num)
+  #cluster_data <- SetAllIdent(cluster_data, id="descriptionF")
+  p <- DotPlot(cluster_data, genes.plot=genes, group.by="descriptionF",
+               cols.use=c("blue", "red"), do.return=TRUE) + coord_flip() + 
+    theme(axis.text.x=element_text(angle=90))
+  plotname <- paste0(make.names("genesCollContMatrix"), "_cluster", cluster_num, "_dotplot.png")
+  ggsave(plotname, plot=p, height=3+length(genes)/8, width=6)
+}
+
+```

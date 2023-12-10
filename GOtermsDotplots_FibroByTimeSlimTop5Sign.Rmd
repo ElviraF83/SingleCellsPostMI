@@ -1,0 +1,427 @@
+---
+title: "DotplotFromGOtermsSubcl"
+author: "me"
+date: "7/1/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+library(tidyverse)
+library(assertthat)
+library(dplyr)
+library(Matrix)
+require(openxlsx)
+library(scales)
+library(plyr)
+library(stringr)
+```
+
+```{r}
+# Put in your actual path where the text files are saved
+mypath = "/Users/fortee/Documents/SINGLE CELL EXPERIMENTS/RNAseq_timeline_postMI/Results/subclustering/subclusters/Seurat3Merged3225_1717subclusters/Panther"#This is the first folder with all the terms Panther GO Slim Biological Process
+setwd(mypath)
+
+# Create list of text files
+#file_list = list.files(path=mypath, pattern="*.txt") 
+# lapply method
+# dataset <- do.call("rbind",lapply(file_list,
+#FUN=function(files){ read_tsv(files,
+#, skip=12)%>%as.tbl()}))
+ 
+ dat1 <- read_tsv("/Users/fortee/Documents/SINGLE CELL EXPERIMENTS/RNAseq_timeline_postMI/Results/subclustering/subclusters/Seurat3Merged3225_1717subclusters/Panther/analysis(Homeo).txt", skip=12)#%>%rename(N=3)
+ dat1 <- as.tbl(dat1)
+ dat1 <- add_column(dat1, type="Homeo")
+colnames(dat1)[1] <- "GO_BiologicalProcesses"
+colnames(dat1)[3] <- "NumGenes"
+BH_pval_col <- grep("P-value", colnames(dat1))
+colnames(dat1)[BH_pval_col] <- "BH_corrected_pval"
+# Select top 5
+n <-5
+#dat1 <- as.data.frame(dat1)
+dat1b <- dplyr::select(dat1, GO_BiologicalProcesses, BH_corrected_pval,NumGenes, type) %>%
+arrange(BH_corrected_pval) %>% 
+mutate(pathway2=reorder(GO_BiologicalProcesses, -BH_corrected_pval)) 
+	head(n)
+dat1c <- dat1b[2:4,]
+############
+	
+ dat2 <- read_tsv("/Users/fortee/Documents/SINGLE CELL EXPERIMENTS/RNAseq_timeline_postMI/Results/subclustering/subclusters/Seurat3Merged3225_1717subclusters/Panther/analysis(D1).txt", skip=12)#%>%rename(N=3)
+ dat2 <- as.tbl(dat2)
+ dat2 <- add_column(dat2, type="D1")
+colnames(dat2)[1] <- "GO_BiologicalProcesses"
+colnames(dat2)[3] <- "NumGenes"
+BH_pval_col <- grep("P-value", colnames(dat2))
+colnames(dat2)[BH_pval_col] <- "BH_corrected_pval"
+# Select top 5
+n <-5
+dat2b <- dplyr::select(dat2, GO_BiologicalProcesses, BH_corrected_pval,NumGenes, type) %>%
+	arrange(BH_corrected_pval) %>% 
+	mutate(pathway2=reorder(GO_BiologicalProcesses, -BH_corrected_pval)) 
+	head(n)
+dat2c <- dat2b[2:10,]	
+
+###	
+ dat3 <- read_tsv("/Users/fortee/Documents/SINGLE CELL EXPERIMENTS/RNAseq_timeline_postMI/Results/subclustering/subclusters/Seurat3Merged3225_1717subclusters/Panther/analysis(D3).txt", skip=12)#%>%rename(N=3)
+ dat3 <- as.tbl(dat3)
+ dat3 <- add_column(dat3, type="D3")
+colnames(dat3)[1] <- "GO_BiologicalProcesses"
+colnames(dat3)[3] <- "NumGenes"
+BH_pval_col <- grep("P-value", colnames(dat3))
+colnames(dat3)[BH_pval_col] <- "BH_corrected_pval"
+# Select top 5
+n <-5
+dat3b <- dplyr::select(dat3, GO_BiologicalProcesses, BH_corrected_pval,NumGenes, type) %>%
+	arrange(BH_corrected_pval) %>% 
+	mutate(pathway2=reorder(GO_BiologicalProcesses, -BH_corrected_pval)) 
+	head(n)
+	dat3c <- dat3b[2:5,]
+	#####
+ dat4 <- read_tsv("/Users/fortee/Documents/SINGLE CELL EXPERIMENTS/RNAseq_timeline_postMI/Results/subclustering/subclusters/Seurat3Merged3225_1717subclusters/Panther/analysis(D5).txt", skip=12)#%>%rename(N=3)
+	dat4 <- as.tbl(dat4)
+ dat4 <- add_column(dat4, type="D5")
+colnames(dat4)[1] <- "GO_BiologicalProcesses"
+colnames(dat4)[3] <- "NumGenes"
+BH_pval_col <- grep("P-value", colnames(dat4))
+colnames(dat4)[BH_pval_col] <- "BH_corrected_pval"
+# Select top 5
+n <-5
+dat4b <- dplyr::select(dat4, GO_BiologicalProcesses, BH_corrected_pval,NumGenes, type) %>%
+	arrange(BH_corrected_pval) %>% 
+	mutate(pathway2=reorder(GO_BiologicalProcesses, -BH_corrected_pval)) 
+	head(n)
+	dat4c <- dat4b[2:7,]
+	####
+ dat5 <- read_tsv("/Users/fortee/Documents/SINGLE CELL EXPERIMENTS/RNAseq_timeline_postMI/Results/subclustering/subclusters/Seurat3Merged3225_1717subclusters/Panther/analysis(D7).txt", skip=12)#%>%rename(N=3)
+	dat5 <- as.tbl(dat5)
+ dat5 <- add_column(dat5, type="D7")
+colnames(dat5)[1] <- "GO_BiologicalProcesses"
+colnames(dat5)[3] <- "NumGenes"
+BH_pval_col <- grep("P-value", colnames(dat5))
+colnames(dat5)[BH_pval_col] <- "BH_corrected_pval"
+# Select top 5
+n <-5
+dat5b <- dplyr::select(dat5, GO_BiologicalProcesses, BH_corrected_pval,NumGenes, type) %>%
+	arrange(BH_corrected_pval) %>% 
+	mutate(pathway2=reorder(GO_BiologicalProcesses, -BH_corrected_pval))
+	head(n) 
+	dat5c <- dat5b[2:3,]
+	###
+	
+ dat6 <- read_tsv("/Users/fortee/Documents/SINGLE CELL EXPERIMENTS/RNAseq_timeline_postMI/Results/subclustering/subclusters/Seurat3Merged3225_1717subclusters/Panther/analysis(14).txt", skip=12)#%>%rename(N=3)
+ dat6 <- as.tbl(dat6)
+ dat6 <- add_column(dat6, type="D14")
+colnames(dat6)[1] <- "GO_BiologicalProcesses"
+colnames(dat6)[3] <- "NumGenes"
+BH_pval_col <- grep("P-value", colnames(dat6))
+colnames(dat6)[BH_pval_col] <- "BH_corrected_pval"
+# Select top 5
+n <-5
+dat6b <- dplyr::select(dat6, GO_BiologicalProcesses, BH_corrected_pval,NumGenes, type) %>%
+	arrange(BH_corrected_pval) %>% 
+	mutate(pathway2=reorder(GO_BiologicalProcesses, -BH_corrected_pval)) 
+	head(n) 
+	dat6c <- dat6b[2:4,]
+	###
+	
+ dat7 <- read_tsv("/Users/fortee/Documents/SINGLE CELL EXPERIMENTS/RNAseq_timeline_postMI/Results/subclustering/subclusters/Seurat3Merged3225_1717subclusters/Panther/analysis(D28).txt", skip=12)#%>%rename(N=3)
+ dat7 <- as.tbl(dat7)
+ dat7 <- add_column(dat7, type="D28")
+colnames(dat7)[1] <- "GO_BiologicalProcesses"
+colnames(dat7)[3] <- "NumGenes"
+BH_pval_col <- grep("P-value", colnames(dat7))
+colnames(dat7)[BH_pval_col] <- "BH_corrected_pval"
+# Select top 5
+n <-5
+dat7b <- dplyr::select(dat7, GO_BiologicalProcesses, BH_corrected_pval,NumGenes, type) %>%
+	arrange(BH_corrected_pval) %>% 
+	mutate(pathway2=reorder(GO_BiologicalProcesses, -BH_corrected_pval)) 
+	head(n) 
+	dat7c <- dat7b[1,]
+	###
+	
+	##
+	
+ dat8 <- read_tsv("/Users/fortee/Downloads/PantherFibroSubclAllBHCorrection/analysis_Phagoc.txt", skip=12)#%>%rename(N=3)
+ dat8 <- as.tbl(dat8)
+ dat8 <- add_column(dat8, type="Phagoc")
+colnames(dat8)[1] <- "GO_BiologicalProcesses"
+colnames(dat8)[3] <- "NumGenes"
+BH_pval_col <- grep("P-value", colnames(dat8))
+colnames(dat8)[BH_pval_col] <- "BH_corrected_pval"
+# Select top 5
+n <-5
+dat8b <- select(dat8, GO_BiologicalProcesses, BH_corrected_pval, NumGenes,type) %>%
+	arrange(BH_corrected_pval) %>% 
+	mutate(pathway2=reorder(GO_BiologicalProcesses, -BH_corrected_pval)) 
+	head(n) 
+	dat8c <- dat8b[2:10,]
+	
+	###
+ dat9 <- read_tsv("/Users/fortee/Downloads/PantherFibroSubclAllBHCorrection/analysis_PhagocCd52Neg.txt", skip=12)#%>%rename(N=3)
+ dat9 <- as.tbl(dat9)
+ dat9 <- add_column(dat9, type="PhagocCd52Neg")
+colnames(dat9)[1] <- "GO_BiologicalProcesses"
+colnames(dat9)[3] <- "NumGenes"
+BH_pval_col <- grep("P-value", colnames(dat9))
+colnames(dat9)[BH_pval_col] <- "BH_corrected_pval"
+# Select top 5
+n <-5
+dat9b <- select(dat9, GO_BiologicalProcesses, BH_corrected_pval,NumGenes, type) %>%
+	arrange(BH_corrected_pval) %>% 
+	mutate(pathway2=reorder(GO_BiologicalProcesses, -BH_corrected_pval)) 
+	head(n) 
+	dat9c <- dat9b[2:10,]
+	###
+	
+ dat10 <- read_tsv("/Users/fortee/Downloads/PantherFibroSubclAllBHCorrection/analysis_MFC.txt", skip=12)#%>%rename(N=3)
+ dat10 <- as.tbl(dat10)
+ dat10 <- add_column(dat10, type="MFC")
+colnames(dat10)[1] <- "GO_BiologicalProcesses"
+colnames(dat10)[3] <- "NumGenes"
+BH_pval_col <- grep("P-value", colnames(dat10))
+colnames(dat10)[BH_pval_col] <- "BH_corrected_pval"
+# Select top 5
+n <-5
+dat10b <- select(dat10, GO_BiologicalProcesses, BH_corrected_pval,NumGenes, type) %>%
+	arrange(BH_corrected_pval) %>% 
+	mutate(pathway2=reorder(GO_BiologicalProcesses, -BH_corrected_pval)) 
+	head(n) 
+	dat10c <- dat10b[2:10,]
+####	
+ 
+
+	
+datasets <- list(dat1c,dat2c, dat3c,  dat4c, dat5c, dat6c, dat7c)
+go_order <- lapply(datasets, "[[", "GO_BiologicalProcesses") %>% unlist() %>% enframe() %>% filter(!duplicated(value)) %>%
+  separate(value, into=c("GO", "GO_ID"), sep="\\(", remove=FALSE)
+Combined <- bind_rows(datasets) %>%
+  mutate(GO_factor=factor(GO_BiologicalProcesses, go_order$value)) %>%
+  arrange(GO_factor) %>%
+  separate(GO_BiologicalProcesses, into=c("GO", "GO_ID"), sep="\\(", remove=FALSE) %>%
+  mutate(GO_f=factor(GO, go_order$GO))
+
+
+
+
+
+
+#merge()
+#for i in list
+
+ #df <- data.frame(matrix(unlist(dat1), nrow=1790, byrow=T),stringsAsFactors=FALSE)
+ Combined$type <- factor(Combined$type, levels = c("Homeo","D1", "D3","D5", "D7", "D14", "D28"))
+Combined$type
+ 
+q <-  ggplot(Combined, aes(x=type, y=GO_f)) +
+	geom_point(aes(color=-log10(BH_corrected_pval), size=NumGenes)) + theme_bw(base_size=18) +
+	xlab("type") + ylab("GOBiologicalProcesses") + scale_size(trans='log10', range=c(1, 10))
+	q + theme(axis.text.x = element_text(angle = 90, hjust = 1))
+	
+	q <-  ggplot(Combined, aes(x=type, y=GO_f)) +
+	geom_point(aes(color=-log10(BH_corrected_pval), size=(NumGenes+1))) + theme_bw(base_size=18) +
+	  scale_size(trans='log10', range=c(1, 10))+
+	xlab("type") + ylab("GOBiologicalProcesses") 
+	coord_flip()
+	q + theme(axis.text.x = element_text(angle = 90, hjust = 1))
+	
+		q <-  ggplot(Combined, aes(x=type, y=GO_f)) +
+	geom_point(aes(color=-log10(BH_corrected_pval), size=(NumGenes))) + theme_bw(base_size=18) +
+	  scale_size_continuous( range=c(5, 20))+
+	xlab("type") + ylab("PantherSlimGOBiologicalProcesses")+ 
+	coord_flip()
+	q + theme(axis.text.x = element_text(angle = 90, hjust = 1))
+```
+
+```{r}
+
+Combined$type <- factor(Combined$type, levels = c("Cxcl14","PLS","EndD","IR", "LR", "Myofb", "Prolif","Phagoc", "MFC"))
+Combined$type
+ 
+q <-  ggplot(Combined, aes(x=type, y=as.factor(pathway2)), group_by(type)) +
+	geom_point(aes(color=-log10(BH_corrected_pval), size=NumGenes)) + theme_bw(base_size=18) +
+	xlab("type") + ylab("GOBiologicalProcesses") 
+	coord_flip()
+	q + theme(axis.text.x = element_text(angle = 90, hjust = 1))
+	
+	q <-  ggplot(Combined, aes(x=type, y=pathway2)) +
+	geom_point(aes(color=-log10(BH_corrected_pval), size=-log10(Combined$BH_corrected_pval))) + theme_bw(base_size=18) +
+	xlab("type") + ylab("GOBiologicalProcesses") 
+	coord_flip()
+	q + theme(axis.text.x = element_text(angle = 90, hjust = 1))
+	
+	
+	ggplot(order_by(Combined$pathway2, ~ Combined$type), aes(x=type, y=pathway2)) +
+    	geom_point(aes(color=-log10(BH_corrected_pval), size=NumGenes)) + theme_bw(base_size=18) +
+	xlab("type") + ylab("GOBiologicalProcesses") 
+	coord_flip()
+	q + theme(axis.text.x = element_text(angle = 90, hjust = 1))
+```
+```{r}
+# Put in your actual path where the text files are saved
+mypath = "/Users/fortee/Documents/SINGLE CELL EXPERIMENTS/RNAseq_timeline_postMI/Results/subclustering/subclusters/Seurat3Merged3225_1717subclusters/"#This is the first folder with all the terms Panther GO Slim Biological Process
+setwd(mypath)
+
+# Create list of text files
+#file_list = list.files(path=mypath, pattern="*.txt") 
+# lapply method
+# dataset <- do.call("rbind",lapply(file_list,
+#FUN=function(files){ read_tsv(files,
+#, skip=12)%>%as.tbl()}))
+ 
+ dat1 <- read_xls("/Users/fortee/Documents/SINGLE CELL EXPERIMENTS/RNAseq_timeline_postMI/Results/subclustering/subclusters/Seurat3Merged3225_1717subclusters/Homeo Upstream analysis.xls", skip=1)#%>%rename(N=3)
+ dat1 <- as.tbl(dat1)
+ dat1 <- add_column(dat1, type="Homeo")
+colnames(dat1)[1] <- "Upstream_Regulator"
+colnames(dat1)[3] <- "MoleculeType"
+colnames(dat1)[4] <- "Status"
+pval_overlap <- grep("p-value", colnames(dat1))
+colnames(dat1)[pval_overlap] <- "pval_overlap"
+# Select top 5
+n <-5
+#dat1 <- as.data.frame(dat1)
+dat1b <- dplyr::select(dat1, Upstream_Regulator, MoleculeType,Status, pval_overlap, type) %>%
+arrange(pval_overlap) %>% 
+mutate(pathway2=reorder(Upstream_Regulator, -pval_overlap)) 
+	head(n)
+dat1c <- dat1b[1:10,]
+############
+	
+ dat2 <- read_xls("/Users/fortee/Documents/SINGLE CELL EXPERIMENTS/RNAseq_timeline_postMI/Results/subclustering/subclusters/Seurat3Merged3225_1717subclusters/D1 Upstream analysis.xls", skip=1)#%>%rename(N=3)
+ dat2 <- as.tbl(dat2)
+ dat2 <- add_column(dat2, type="D1")
+colnames(dat2)[1] <- "Upstream_Regulator"
+colnames(dat2)[3] <- "MoleculeType"
+colnames(dat2)[4] <- "Status"
+pval_overlap <- grep("p-value", colnames(dat2))
+colnames(dat2)[pval_overlap] <- "pval_overlap"
+# Select top 5
+n <-5
+#dat2 <- as.data.frame(dat2)
+dat2b <- dplyr::select(dat2, Upstream_Regulator, MoleculeType,Status, pval_overlap, type) %>%
+arrange(pval_overlap) %>% 
+mutate(pathway2=reorder(Upstream_Regulator, -pval_overlap)) 
+	head(n)
+dat2c <- dat2b[1:10,]
+
+###	
+ dat3 <- read_xls("/Users/fortee/Documents/SINGLE CELL EXPERIMENTS/RNAseq_timeline_postMI/Results/subclustering/subclusters/Seurat3Merged3225_1717subclusters/D3 Upstream analysis.xls", skip=1)
+ dat3 <- as.tbl(dat3)
+ dat3 <- add_column(dat3, type="D3")
+colnames(dat3)[1] <- "Upstream_Regulator"
+colnames(dat3)[3] <- "MoleculeType"
+colnames(dat3)[4] <- "Status"
+pval_overlap  <- grep("p-value", colnames(dat3))
+colnames(dat3)[pval_overlap] <- "pval_overlap"
+# Select top 5
+n <-5
+dat3b <- dplyr::select(dat3, Upstream_Regulator, MoleculeType,Status, pval_overlap, type) %>%
+	arrange(pval_overlap) %>% 
+	mutate(pathway2=reorder(Upstream_Regulator, -pval_overlap)) 
+	head(n)
+	dat3c <- dat3b[1:10,]
+	#####
+ dat4 <- read_xls("/Users/fortee/Documents/SINGLE CELL EXPERIMENTS/RNAseq_timeline_postMI/Results/subclustering/subclusters/Seurat3Merged3225_1717subclusters/D5 Upstream analysis.xls", skip=1)
+	dat4 <- as.tbl(dat4)
+ dat4 <- add_column(dat4, type="D5")
+colnames(dat4)[1] <- "Upstream_Regulator"
+colnames(dat4)[3] <- "MoleculeType"
+colnames(dat4)[4] <- "Status"
+pval_overlap <- grep("p-value", colnames(dat4))
+colnames(dat4)[pval_overlap] <- "pval_overlap"
+# Select top 5
+n <-5
+dat4b <- dplyr::select(dat4,Upstream_Regulator, MoleculeType,Status, pval_overlap, type) %>%
+	arrange(pval_overlap) %>% 
+	mutate(pathway2=reorder(Upstream_Regulator, -pval_overlap)) 
+	head(n)
+	dat4c <- dat4b[1:10,]
+	####
+ dat5 <- read_xls("/Users/fortee/Documents/SINGLE CELL EXPERIMENTS/RNAseq_timeline_postMI/Results/subclustering/subclusters/Seurat3Merged3225_1717subclusters/D7 Upstream analysis.xls", skip=1)#%>%rename(N=3)
+	dat5 <- as.tbl(dat5)
+ dat5 <- add_column(dat5, type="D7")
+colnames(dat5)[1] <- "Upstream_Regulator"
+colnames(dat5)[3] <- "MoleculeType"
+colnames(dat5)[4] <- "Status"
+pval_overlap <- grep("p-value", colnames(dat5))
+colnames(dat5)[pval_overlap] <- "pval_overlap"
+# Select top 5
+n <-5
+dat5b <- dplyr::select(dat5, Upstream_Regulator, MoleculeType,Status, pval_overlap, type) %>%
+	arrange(pval_overlap) %>% 
+	mutate(pathway2=reorder(Upstream_Regulator, -pval_overlap))
+	head(n) 
+	dat5c <- dat5b[1:10,]
+	###
+	
+ dat6 <-read_xls("/Users/fortee/Documents/SINGLE CELL EXPERIMENTS/RNAseq_timeline_postMI/Results/subclustering/subclusters/Seurat3Merged3225_1717subclusters/D14 Upstream analysis.xls", skip=1)#%>%rename(N=3)%rename(N=3)
+ dat6 <- as.tbl(dat6)
+ dat6 <- add_column(dat6, type="D14")
+colnames(dat6)[1] <- "Upstream_Regulator"
+colnames(dat6)[3] <- "MoleculeType"
+colnames(dat6)[4] <- "Status"
+pval_overlap<- grep("p-value", colnames(dat6))
+colnames(dat6)[pval_overlap] <- "pval_overlap"
+# Select top 5
+n <-5
+dat6b <- dplyr::select(dat6, Upstream_Regulator, MoleculeType,Status, pval_overlap, type) %>%
+	arrange(pval_overlap) %>% 
+	mutate(pathway2=reorder(Upstream_Regulator, -pval_overlap)) 
+	head(n) 
+	dat6c <- dat6b[1:10,]
+	###
+	
+ dat7 <- read_xls("/Users/fortee/Documents/SINGLE CELL EXPERIMENTS/RNAseq_timeline_postMI/Results/subclustering/subclusters/Seurat3Merged3225_1717subclusters/D28 Upstream analysis.xls", skip=1)#%>%rename(N=3)
+ dat7 <- as.tbl(dat7)
+ dat7 <- add_column(dat7, type="D28")
+colnames(dat7)[1] <- "Upstream_Regulator"
+colnames(dat7)[3] <- "MoleculeType"
+colnames(dat7)[4] <- "Status"
+pval_overlap <- grep("p-value", colnames(dat7))
+colnames(dat7)[pval_overlap] <- "pval_overlap"
+# Select top 5
+n <-5
+dat7b <- dplyr::select(dat7,Upstream_Regulator, MoleculeType,Status, pval_overlap, type) %>%
+	arrange(pval_overlap) %>% 
+	mutate(pathway2=reorder(Upstream_Regulator, -pval_overlap)) 
+	head(n) 
+	dat7c <- dat7b[1:10,]
+	###
+	
+	##
+	
+ 
+	
+datasets <- list(dat1c,dat2c, dat3c,  dat4c, dat5c, dat6c, dat7c)
+#go_order <- lapply(datasets, "[[", "Upstream_Regulator") %>% unlist() %>% enframe() %>% filter(!duplicated(value)) %>%
+#  separate(value, into=c("GO", "GO_ID"), sep="\\(", remove=FALSE)
+#Combined <- bind_rows(datasets) %>%
+ # mutate(GO_factor=factor(GO_BiologicalProcesses, go_order$value)) %>%
+  #arrange(GO_factor) %>%
+  #separate(GO_BiologicalProcesses, into=c("GO", "GO_ID"), sep="\\(", remove=FALSE) %>%
+  #mutate(GO_f=factor(GO, go_order$GO))
+
+Combined <- bind_rows(datasets) 
+
+
+
+
+#merge()
+#for i in list
+
+ #df <- data.frame(matrix(unlist(dat1), nrow=1790, byrow=T),stringsAsFactors=FALSE)
+ Combined$type <- factor(Combined$type, levels = c("Homeo","D1", "D3","D5", "D7", "D14", "D28"))
+Combined$type
+ 
+q <-  ggplot(Combined, aes(x=type, y=Upstream_Regulator)) +
+	geom_point(aes(color=Status, shape=MoleculeType) , size=-log10(pval_overlap)) + theme_bw(base_size=18) +
+	xlab("time") + ylab("UpstreamRegulators") + scale_size(trans='log10', range=c(1, 10))+coord_flip()
+	q + theme(axis.text.x = element_text(angle = 90, hjust = 1))
+###CORRECT!	
+	q <-  ggplot(Combined, aes(x=type, y=Upstream_Regulator)) +
+	geom_point(aes(color=Status, size=-log10(pval_overlap))) + theme_bw(base_size=18) +
+	xlab("time") + ylab("UpstreamRegulators") + scale_size(trans='log10', range=c(1, 10))
+	q + theme(axis.text.x = element_text(angle = 90, hjust = 1))
+	
+	
+```
+

@@ -1,0 +1,71 @@
+---
+title: "clean seurat sub clusters"
+author: "me"
+date: "5/31/2019"
+output: html_document
+---
+
+```{r}
+library(dplyr)
+library("Seurat")
+library(data.table)
+library(tidyverse)
+library(tibble)
+require(openxlsx)
+combined<-readRDS("/Users/fortee/Documents/SINGLE CELL EXPERIMENTS/RNAseq_timeline_postMI/Data/CleanFibroAggregateNo1011.rds")
+plot.genesi<-c("Ptprc", "Cd52","Ifit3","Isg15","Dmkn","Wt1","Clu","H2afz","Stmn1","Dkk3","Wif1","Comp","Sfrp2","Mt2","Angptl4","Notch2", "Lyz2","Cthrc1","Acta2","Pi16", "Cd248","Meox1", "Sparcl1","Cxcl14","Dpep1", "zsgreen")
+
+
+
+DotPlot(object = combined, genes.plot = plot.genesi, plot.legend = TRUE, x.lab.rot=TRUE)
+
+#BuildClusterTree(combined)
+genes <- read.csv("/Users/fortee/Documents/SINGLE CELL EXPERIMENTS/RNAseq_timeline_postMI/Data/TopFibros.csv", col.names = NA)
+
+genes<-scan(file="/Users/fortee/Desktop/Genes.csv", what="character")
+genes <- unique(genes)
+cluster.averages <-AverageExpression(combined,return.seurat = TRUE, show.progress = FALSE)
+#DoHeatmap(object = cluster.averages, genes.use = genes[0:9,], slim.col.label = TRUE, remove.key = TRUE)
+#genes= c("Postn", "Col8a1", "Meox1", "Cilp", "Mfap4","Mgp","Sparcl1","Smoc2","Kcnk2","Btg2","Adamtsl2","Spry1","Fstl1","Comp", "Wisp2","Sfrp2","Fn1","Thbs4","1500015O10Rik","Prg4","Wif1")
+genes= c("Postn", "Col8a1", "Meox1", "Cilp", "Mfap4","Mgp","Sparcl1","Smoc2","Kcnk2","Btg2","Adamtsl2","Spry1","Fstl1","Comp", "Wisp2","Sfrp2","Fn1","Thbs4","1500015O10Rik","Prg4","Wif1", "Igf1r", "Igf1", "Ltbp4", "Tgfb1", "Agt")
+DoHeatmap(object = cluster.averages, genes.use = genes, slim.col.label =FALSE, remove.key = FALSE)
+DotPlot(object = combined, genes.plot = c("Fap","Thy1", "Pdpn", "Tnfsf11", "Tnfrsf11b"), plot.legend = TRUE, x.lab.rot=TRUE)
+DotPlot(object = combined, genes.plot = genes, plot.legend = TRUE, x.lab.rot=TRUE) #+ theme(axis.text.x = element_text(face = "italic"))
+VlnPlot(combined,features.plot =c("Fap","Thy1", "Pdpn", "Tnfsf11", "Tnfrsf11b"),point.size.use = 0.1, x.lab.rot = TRUE)#Rankl=Tnfsf11 Opg=Tnfrsf11b
+combined<-SetIdent(combined, ident.use=combined@meta.data$stim)
+VlnPlot(combined,features.plot =c("Fap","Thy1", "Pdpn", "Tnfsf11", "Tnfrsf11b"),point.size.use = 0.1, x.lab.rot = TRUE)
+```
+
+```{r}
+getwd()
+
+library(tidyverse)
+library(assertthat)
+library(Seurat)
+library(readxl)
+library(pheatmap)
+library(scater)
+library(tidyverse)
+library(biomaRt)
+library(writexl)
+dat <- read_excel("/Users/fortee/Desktop/testD0IPA.xlsx", col_names = TRUE)
+
+
+
+```
+
+```{r}
+combined<-SetIdent(combined, ident.use=combined@meta.data$stim)
+
+table(combined@ident)
+ident_use<-c("d1", "d0")
+sub<- SubsetData(combined, ident.use = ident_use, subset.raw = T,  do.clean=T )
+#sub<-SetIdent(sub, ident.use=sub@meta.data$CellType_0.5)
+sub<-SetIdent(sub, ident.use=sub@meta.data$stim)
+markersd1_d0 <- FindMarkers(sub, ident.1="d1", test.use = "MAST")
+write.csv(markersd1_d0, file="/Users/fortee/Documents/SINGLE CELL EXPERIMENTS/RNAseq_timeline_postMI/Results/PairwiseFibroTime/markers_d1d0Fibros.csv")
+```
+```{r}
+Casual <- read_xlsx("/Users/fortee/Downloads/PairwiseFibrosTime/CasualNetwork defaultBio.xlsx", sheet=1, col_names=TRUE)
+```
+

@@ -1,0 +1,116 @@
+---
+title: "diff_expression_byday"
+author: "me"
+date: "3/2/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+#get_diff_expressed_genes <- function(cluster_num, fold_change_threshold=2, 
+#	pval_threshold=1e-06, expr_threshold=0.5) {
+get_diff_expressed_genes <- function(cluster_num, fold_change_threshold=2, 
+pval_threshold=1e-02, expr_threshold=0) {
+	require(readxl)
+	batch_strain <- c("MFMF17004"="B6", "MFMF17008"="B6", "MFMF17014"="B6", "MFMF18001"="129", "MFMF18002"="129")
+	cluster_num <- as.character(cluster_num)
+	day0 <- read_excel("/Users/fortee/Documents/SINGLE CELL EXPERIMENTS/RNAseq_timeline_postMI/Data/Harmony/diff_expression_by_strain_d0_mast_combine.xlsx", sheet=cluster_num) %>%
+		mutate(day=0) %>% select(-cluster) %>% filter(pval < pval_threshold) %>%
+		gather("batch", "mean_expression", starts_with("MFMF"))
+	
+	
+	dat <- bind_rows(day0) %>% mutate(strain=batch_strain[batch])
+	# average mean_expression across reps
+	dat_avg <- dplyr::group_by(dat, mgi_symbol, day, strain) %>%
+		dplyr::summarize(expression=mean(mean_expression)) %>% ungroup()
+	# calculate fold change
+	dat_summary <- dat_avg %>% spread(strain, expression) %>%
+		mutate(max_expr=pmax(`129`, B6)) %>%
+		mutate(fold_change=pmax(`129`/B6, B6/`129`))
+	filtered_dat <- filter(dat_summary, fold_change > fold_change_threshold,
+		max_expr > expr_threshold)
+	sort(unique(filtered_dat$mgi_symbol))
+}
+
+# Get all genes that are differentially expressed with p-value < 1e-6,
+# >2 fold change, and expression >0.5 in at least one strain ... 
+# all of this in cluster 10
+#x <- get_diff_expressed_genes("10")
+#("0", "2", "7", "17", "14","3","11", "13" )
+# "0", "2","6", "7",#"3","11", "13" (14 epi 17 fibrocytes)
+y0 <- lapply(c("0", "2","6", "7","3","11", "13"  ), get_diff_expressed_genes) %>% unlist() %>% unique() %>% sort()
+cat(as.character(y0), sep="\n", file="/Users/fortee/Documents/SINGLE CELL EXPERIMENTS/RNAseq_timeline_postMI/Data/Harmony/D0DiffExpressSignGenesinMyofbFibrosFoldChange2_001.txt")
+
+x0 <- lapply(c("0", "2","6", "7" ), get_diff_expressed_genes) %>% unlist() %>% unique() %>% sort()
+cat(as.character(x0), sep="\n", file="/Users/fortee/Documents/SINGLE CELL EXPERIMENTS/RNAseq_timeline_postMI/Data/Harmony/DODiffExpressSignGenesinFibrosFoldChange2_001.txt")
+#write_csv(y,"file=/Users/fortee/Documents/SINGLE CELL EXPERIMENTS/RNAseq_timeline_postMI/Data/Harmony/DiffExpressSignGenesinFibroMyofb.csv")
+z0 <- lapply(c("3","11", "13"), get_diff_expressed_genes) %>% unlist() %>% unique() %>% sort()
+cat(as.character(z0), sep="\n", file="/Users/fortee/Documents/SINGLE CELL EXPERIMENTS/RNAseq_timeline_postMI/Data/Harmony/D0DiffExpressSignGenesinMyofbFoldChange2_001.txt")
+#write_csv(y,"file=/Users/fortee/Documents/SINGLE CELL EXPERIMENTS/RNAseq_timeline_postMI/Data/Harmony/DiffExpressSignGenesinFibroMyofb.csv")
+e0 <- lapply(c("14"), get_diff_expressed_genes) %>% unlist() %>% unique() %>% sort()
+cat(as.character(e0), sep="\n", file="/Users/fortee/Documents/SINGLE CELL EXPERIMENTS/RNAseq_timeline_postMI/Data/Harmony/D0DiffExpressSignGenesinEpiFoldChange2_001.txt")
+f0 <- lapply(c("17"), get_diff_expressed_genes) %>% unlist() %>% unique() %>% sort()
+cat(as.character(f0), sep="\n", file="/Users/fortee/Documents/SINGLE CELL EXPERIMENTS/RNAseq_timeline_postMI/Data/Harmony/D0DiffExpressSignGenesinFibrocytesFoldChange2_001.txt")
+
+```
+
+
+
+```{r cars}
+#get_diff_expressed_genes <- function(cluster_num, fold_change_threshold=2, 
+#	pval_threshold=1e-06, expr_threshold=0.5) {
+get_diff_expressed_genes <- function(cluster_num, fold_change_threshold=2, 
+pval_threshold=1e-02, expr_threshold=0) {
+	require(readxl)
+	batch_strain <- c("MFMF17004"="B6", "MFMF17008"="B6", "MFMF17014"="B6", "MFMF18001"="129", "MFMF18002"="129")
+	cluster_num <- as.character(cluster_num)
+	day3 <- read_excel("/Users/fortee/Documents/SINGLE CELL EXPERIMENTS/RNAseq_timeline_postMI/Data/Harmony/diff_expression_by_strain_d3_mast_combine.xlsx", sheet=cluster_num) %>%
+		mutate(day=3) %>% select(-cluster) %>% filter(pval < pval_threshold) %>%
+		gather("batch", "mean_expression", starts_with("MF"))
+	dat <- bind_rows( day3) %>% mutate(strain=batch_strain[batch])
+	# average mean_expression across reps
+	dat_avg <- dplyr::group_by(dat, mgi_symbol, day, strain) %>%
+		dplyr::summarize(expression=mean(mean_expression)) %>% ungroup()
+	# calculate fold change
+	dat_summary <- dat_avg %>% spread(strain, expression) %>%
+		mutate(max_expr=pmax(`129`, B6)) %>%
+		mutate(fold_change=pmax(`129`/B6, B6/`129`))
+	filtered_dat <- filter(dat_summary, fold_change > fold_change_threshold,
+		max_expr > expr_threshold)
+	sort(unique(filtered_dat$mgi_symbol))
+}
+
+# Get all genes that are differentially expressed with p-value < 1e-6,
+# >2 fold change, and expression >0.5 in at least one strain ... 
+# all of this in cluster 10
+#x <- get_diff_expressed_genes("10")
+#("0", "2", "7", "17", "14","3","11", "13" )
+# "0", "2","6", "7",#"3","11", "13" (14 epi 17 fibrocytes)
+y3 <- lapply(c("0", "2","6", "7","3","11", "13"  ), get_diff_expressed_genes) %>% unlist() %>% unique() %>% sort()
+cat(as.character(y3), sep="\n", file="/Users/fortee/Documents/SINGLE CELL EXPERIMENTS/RNAseq_timeline_postMI/Data/Harmony/D3DiffExpressSignGenesinMyofbFibrosFoldChange2_001.txt")
+
+x3 <- lapply(c("0", "2","6", "7" ), get_diff_expressed_genes) %>% unlist() %>% unique() %>% sort()
+cat(as.character(x3), sep="\n", file="/Users/fortee/Documents/SINGLE CELL EXPERIMENTS/RNAseq_timeline_postMI/Data/Harmony/D3DiffExpressSignGenesinFibrosFoldChange2_001.txt")
+#write_csv(y,"file=/Users/fortee/Documents/SINGLE CELL EXPERIMENTS/RNAseq_timeline_postMI/Data/Harmony/DiffExpressSignGenesinFibroMyofb.csv")
+z3 <- lapply(c("3","11", "13"), get_diff_expressed_genes) %>% unlist() %>% unique() %>% sort()
+cat(as.character(z3), sep="\n", file="/Users/fortee/Documents/SINGLE CELL EXPERIMENTS/RNAseq_timeline_postMI/Data/Harmony/D3DiffExpressSignGenesinMyofbFoldChange2_001.txt")
+#write_csv(y,"file=/Users/fortee/Documents/SINGLE CELL EXPERIMENTS/RNAseq_timeline_postMI/Data/Harmony/DiffExpressSignGenesinFibroMyofb.csv")
+e3 <- lapply(c("14"), get_diff_expressed_genes) %>% unlist() %>% unique() %>% sort()
+cat(as.character(e3), sep="\n", file="/Users/fortee/Documents/SINGLE CELL EXPERIMENTS/RNAseq_timeline_postMI/Data/Harmony/D3DiffExpressSignGenesinEpiFoldChange2_001.txt")
+f3 <- lapply(c("17"), get_diff_expressed_genes) %>% unlist() %>% unique() %>% sort()
+cat(as.character(f3), sep="\n", file="/Users/fortee/Documents/SINGLE CELL EXPERIMENTS/RNAseq_timeline_postMI/Data/Harmony/D3DiffExpressSignGenesinFibrocytesFoldChange2_001.txt")
+
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r pressure, echo=FALSE}
+url <- "~/Desktop/textList.jsp"
+Cvs <- xmlToDataFrame(url)
+xmlTo
+test<-read_csv("~/Downloads/MyTextFile.csv")
+
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.

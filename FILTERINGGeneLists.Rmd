@@ -1,0 +1,482 @@
+---
+title: "ligand receptor pairs"
+author: "me"
+date: "8/28/2019"
+output: html_document
+---
+
+## Obtaining mouse orthologs of ligand-receptor pairs
+
+```{r}
+library(tidyverse)
+library(readxl)
+library(biomaRt)
+#install.packages("writexl")
+library(writexl)
+```
+
+
+Read in supp table from Ramilowski et al.
+```{r}
+dat <- read_excel("/Users/fortee/Downloads/ncomms8866-s3.xlsx", sheet="All.Pairs") %>%
+  dplyr::filter(!grepl("EXCLUDED", Pair.Evidence)) %>%
+  dplyr::select(Pair.Name, Ligand.ApprovedSymbol, Receptor.ApprovedSymbol) %>%
+  mutate(pairnum=1:n()) %>%
+  dplyr::rename("pair"="Pair.Name", "ligand"="Ligand.ApprovedSymbol",
+         "receptor"="Receptor.ApprovedSymbol") %>%
+  gather(key="type", value="gene", ligand:receptor)
+```
+
+Get human-mouse orthologs
+```{r}
+human <- useMart("ensembl", dataset="hsapiens_gene_ensembl")
+mouse <- useEnsembl(biomart="ensembl", dataset="mmusculus_gene_ensembl")
+genesmus <- getLDS(attributes="hgnc_symbol", filters="hgnc_symbol",
+  values=dat$gene, mart=human, attributesL="mgi_symbol", martL=mouse,
+  uniqueRows=TRUE)
+```
+
+Select 1:1 orthologs only
+```{r}
+genesmus2 <- rename(genesmus, "human"="HGNC.symbol",
+  "mouse"="MGI.symbol") %>% group_by(human) %>%
+  mutate(nmouse=n()) %>% group_by(mouse) %>%
+  mutate(nhuman=n()) %>%
+  filter(nmouse == 1, nhuman == 1) %>%
+  dplyr::select(-nmouse, -nhuman)
+```
+
+Get ENSEMBL gene IDs for mouse
+```{r}
+ens <- getBM(attributes=c("ensembl_gene_id", "mgi_symbol", "chromosome_name"),
+  filter="mgi_symbol", values=genesmus2$mouse, mart=mouse)
+genesmus3 <- inner_join(genesmus2, ens, by=c("mouse"="mgi_symbol")) %>%
+  dplyr::filter(!grepl("PATCH", chromosome_name)) %>%
+  dplyr::filter(!grepl("CHR_MM", chromosome_name)) %>%
+  dplyr::select(-chromosome_name)
+```
+
+Compile a dataset of receptor-ligand pairs in mouse
+```{r}
+pairgenes <- sort(unique(genesmus3$ensembl_gene_id))
+pairs <- inner_join(dat, genesmus3, by=c("gene"="human")) %>%
+  mutate(mouse_ens=paste0(mouse, "~", ensembl_gene_id)) %>%
+  dplyr::select(-mouse, -ensembl_gene_id) %>%
+  group_by(pair) %>% filter(n() == 2) %>%
+  dplyr::select(-gene) %>%
+  spread(type, mouse_ens) %>%
+  separate(ligand, into=c("ligand_symbol", "ligand_gene_id"), sep="~") %>%
+  separate(receptor, into=c("receptor_symbol", "receptor_gene_id"), sep="~")
+
+```
+
+### Overview of basic analysis steps in `R`
+
+First, compile a list of receptor-ligand pairs. From this,
+`receptor_genes` and `ligand_genes` which are vectors of
+genes. Note that many receptors and ligands will be duplicated
+in these gene lists but receptor-ligand pair *i* should be unique.
+If we have a matrix of raw UMI counts with genes in rows and
+cells in columns `raw_counts`:
+
+```{r}
+library(tidyverse)
+library(assertthat)
+#raw_counts <- as.matrix(combined@raw.data)  
+wd<-"/Users/fortee/Documents/SINGLE CELL EXPERIMENTS/RNAseq_timeline_postMI"  
+foldername <- "Data"
+combined<-readRDS(file.path(wd,foldername,"agg_res5_combined.rds"))
+new.ident <- c("Fibroblasts I","Macrophages","Endothelial","Monocytes I","Myofibroblasts","B cells","Fibroblasts II","Fibroblasts III","DCs","Monocyte II","NK_T cells","Granulocytes","Epicardium","SMCs_Pericytes","Lymphatic ECs","Schwann cells")
+
+for (i in 0:15) {
+ combined <- RenameIdent(object = combined, old.ident.name = i, 
+                                 new.ident.name = new.ident[i + 1])
+}
+combined<-StashIdent(combined, save.name = "CellType_0.5")
+raw_counts <- combined@raw.data  
+ligand_genes <- pairs$ligand_symbol
+
+
+genes <- combined@raw.data@Dimnames[[1]]
+raw_ligand <- intersect(genes,ligand_genes)
+
+combined_ligand <- subset(raw_counts, raw_counts@Dimnames[[1]], select=raw_ligand)
+receptor_genes <- pairs$receptor_symbol
+raw_receptor <- intersect(genes,receptor_genes)
+library(dplyr)
+#raw_counts <- as.matrix(raw_counts )
+#raw_ligand <- raw_counts%>%
+#    filter(raw_counts@Dimnames[[1]] %in% ligand_genes)
+
+
+
+
+
+
+nm <- rownames(state.x77)
+start_with_M <- nm %in% grep("^M", nm, value = TRUE)
+subset(state.x77, start_with_M, Illiteracy:Murder)
+# but in recent versions of R this can simply be
+subset(state.x77, grepl("^M", nm), Illiteracy:Murder)
+
+nm <- rownames(raw_counts)
+start_with_M <- nm %in% grep(ligand_genes, nm, value = TRUE)
+subset(raw_counts, nm, ligand_genes)
+# but in recent versions of R this can simply be
+subset (raw_counts, grepl(ligand_genes, nm))
+
+
+typeof(ligand_genes)
+ligand <- as.list(ligand_genes)
+test <- subset (raw_counts, grepl(ligand_genes, nm))
+
+```
+
+Obtain boolean matrices indicating expression of each receptor/ligand
+in each cell type. `pops` is a vector of cell type labels:
+```{r}
+combined <- SetIdent(combined, ident.use=combined@meta.data$CellType_0.5)
+
+cell_pops <- factor(combined@meta.data$CellType_0.5,
+    levels=c("Fibroblasts I","Macrophages","Endothelial","Monocytes I","Myofibroblasts","B cells","Fibroblasts II","Fibroblasts III","DCs","Monocyte II","NK_T cells","Granulocytes","Epicardium","SMCs_Pericytes","Lymphatic ECs","Schwann cells"))
+cell_pops <- as.vector(combined@meta.data$CellType_0.5)
+```
+
+```{r}
+expressed <- function(x, cell_pops, threshold=0.2) {
+  assert_that(length(x) == length(cell_pops))
+  tapply(x, cell_pops, function(y) mean(y > 0) > threshold)
+}
+ligand_expressed <- apply(raw_ligand, 1, expressed, cell_pops=pops)
+receptor_expressed <- apply(raw_receptor, 1, expressed, cell_pops=pops)
+
+
+ligand_expressed <- AverageExpression(combined, genes.use=raw_ligand)
+receptor_expressed <- AverageExpression(combined, genes.use=raw_receptor)
+
+genesUps<-scan(file="/Users/fortee/Documents/SINGLE CELL EXPERIMENTS/RNAseq_timeline_postMI/Data/UpstreamActa2Genes.csv", what="character")
+genesUps <- unique (genesUps)
+genes <- combined@raw.data@Dimnames[[1]]
+raw_genesUps <- intersect(genes,genesUps)
+upstream_regulator <- AverageExpression(combined, genes.use=raw_genesUps)
+
+write.csv(ligand_expressed, "exp_ligands_allpop.csv", row.name=TRUE)
+write.csv(receptor_expressed, "exp_receptors_allpop.csv")
+#ligands <- SubsetData(object =combined, combined@data@Dimnames[['raw_ligand']])
+write.csv(upstream_regulator, "exp_upstreamd3Acta2.csv")
+getwd()
+```
+
+Finally, tally up the number of interactions between ligands and
+receptors expressed in each pair of cell types.
+```{r}
+interactions <- tcrossprod(ligand_expressed, receptor_expressed)
+idat <- rownames_to_column(as.data.frame(interactions), "ligand") %>%
+  gather("receptor", 'value', -ligand)
+```
+```{r}
+
+genesC <- c("Col1a2", "Col3a1",
+"Col5a2","Col4a4",
+"Col4a3", "Col6a3 ","Col5a1", "Col4a6", "Col4a5 ","Col11a1", "Col9a2", "Col1a2", "Col6a2", "Col6a1", "Col18a1", "Col4a1", "Col4a2", "Col5a3", "Col1a1", "Col14a1", "Col2a1", "Col8a1")
+raw_Col <- intersect(genes,genesC)
+combined<-SetIdent(combined, ident.use=combined@meta.data$stim)
+stim <- factor(combined@meta.data$stim,
+    levels=c("d0","d1", "d3", "d5", "d7", "d14", "d28")) 
+recept_time <- list()
+for (stim in c("d0","d1", "d3", "d5", "d7", "d14", "d28")){
+sub<- SubsetData(combined, ident.use = stim, subset.raw = T,  do.clean=T )
+sub<-SetIdent(sub, ident.use=sub@meta.data$CellType_0.5)
+avg.exp <- AverageExpression(sub, genes.use=raw_Col)
+avg.exp$gene <- row.names(avg.exp)
+avg.exp$type <- "ColGenes"
+#avg.exp$cluster <- ident.use
+recept_time[[paste0(stim,' ', "ColGenes")]] <- avg.exp
+}
+ write_xlsx(recept_time, "ColGenes_bytime.xlsx")
+
+ combined<-SetIdent(combined, ident.use=combined@meta.data$CellType_0.5)
+CellType <- factor(combined@meta.data$CellType_0.5,
+    levels=c("Fibroblasts I","Macrophages","Endothelial","Monocytes I","Myofibroblasts","B cells","Fibroblasts II","Fibroblasts III","DCs","Monocyte II","NK_T cells","Granulocytes","Epicardium","SMCs_Pericytes","Lymphatic ECs","Schwann cells")) 
+recept_time <- list()
+for (CellType in c("Fibroblasts I","Macrophages","Endothelial","Monocytes I","Myofibroblasts","B cells","Fibroblasts II","Fibroblasts III","DCs","Monocyte II","NK_T cells","Granulocytes","Epicardium","SMCs_Pericytes","Lymphatic ECs","Schwann cells")){
+sub<- SubsetData(combined, ident.use = CellType, subset.raw = T,  do.clean=T )
+sub<-SetIdent(sub, ident.use=sub@meta.data$stim)
+avg.exp <- AverageExpression(sub, genes.use=raw_Col)
+avg.exp$gene <- row.names(avg.exp)
+avg.exp$type <- "ColGenes"
+#avg.exp$cluster <- ident.use
+recept_time[[paste0(CellType,' ', "ColGenes")]] <- avg.exp
+}
+ write_xlsx(recept_time, "ColGenes_bypop_bytime.xlsx")
+ 
+combined<-SetIdent(combined, ident.use=combined@meta.data$stim)
+stim <- factor(combined@meta.data$stim,
+    levels=c("d0","d1", "d3", "d5", "d7", "d14", "d28")) 
+recept_time <- list()
+for (stim in c("d0","d1", "d3", "d5", "d7", "d14", "d28")){
+sub<- SubsetData(combined, ident.use = stim, subset.raw = T,  do.clean=T )
+sub<-SetIdent(sub, ident.use=sub@meta.data$CellType_0.5)
+avg.exp <- AverageExpression(sub, genes.use=raw_receptor)
+avg.exp$gene <- row.names(avg.exp)
+avg.exp$type <- "receptor"
+#avg.exp$cluster <- ident.use
+recept_time[[paste0(stim,' ', "receptors")]] <- avg.exp
+}
+ write_xlsx(recept_time, "receptors_bytime.xlsx")
+ 
+ full_dataset <- do.call("rbind", recept_time)
+ write.csv(full_dataset)
+ 
+ combined<-SetIdent(combined, ident.use=combined@meta.data$stim)
+stim <- factor(combined@meta.data$stim,
+    levels=c("d0","d1", "d3", "d5", "d7", "d14", "d28")) 
+ 
+ 
+ ligand_time <- list()
+for (stim in c("d0","d1", "d3", "d5", "d7", "d14", "d28")){
+sub<- SubsetData(combined, ident.use = stim, subset.raw = T,  do.clean=T )
+sub<-SetIdent(sub, ident.use=sub@meta.data$CellType_0.5)
+avg.exp <- AverageExpression(sub, genes.use=raw_ligand)
+avg.exp$gene <- row.names(avg.exp)
+avg.exp$type <- "ligand"
+#avg.exp$cluster <- ident.use
+ligand_time[[paste0(stim,' ', "ligands")]] <- avg.exp
+}
+write_xlsx(ligand_time, "_bytime.xlsx")
+#ligand_expressed <- AverageExpression(combined, genes.use=raw_ligand)
+#receptor_expressed <- AverageExpression(combined, genes.use=raw_receptor)
+#write.csv(ligand_expressed, "exp_ligands_allpop.csv", row.name=TRUE)
+#write.csv(receptor_expressed, "exp_receptors_allpop.csv")
+
+genes <- combined@raw.data@Dimnames[1]
+
+combined<-SetIdent(combined, ident.use=combined@meta.data$stim)
+stim <- factor(combined@meta.data$stim,
+    levels=c("d0","d1", "d3", "d5", "d7", "d14", "d28"))
+ ligand_time <- list()
+for (stim in c("d0","d1", "d3", "d5", "d7", "d14", "d28")){
+sub<- SubsetData(combined, ident.use = stim, subset.raw = T,  do.clean=T )
+sub<-SetIdent(sub, ident.use=sub@meta.data$CellType_0.5)
+avg.exp <- AverageExpression(sub, genes.use=raw_genesUps)
+avg.exp$gene <- row.names(avg.exp)
+avg.exp$type <- "upstreamActa2"
+#avg.exp$cluster <- ident.use
+ligand_time[[paste0(stim,' ', "upstreamActa2")]] <- avg.exp
+}
+write_xlsx(ligand_time, "upstreamActa2_bytime.xlsx")
+
+#####KRT genes
+genes_to_use <- grep("^Krt", rownames(combined@raw.data), value=T)
+genes_to_use <-grep("^Saa1", rownames(combined@raw.data), value=T)
+#genes <- combined@raw.data@Dimnames[1]
+#genes_to_use <-intersect(genes, genes_to_use)
+combined<-SetIdent(combined, ident.use=combined@meta.data$stim)
+stim <- factor(combined@meta.data$stim,
+    levels=c("d0","d1", "d3", "d5", "d7", "d14", "d28"))
+ ligand_time <- list()
+for (stim in c("d0","d1", "d3", "d5", "d7", "d14", "d28")){
+sub<- SubsetData(combined, ident.use = stim, subset.raw = T,  do.clean=T )
+sub<-SetIdent(sub, ident.use=sub@meta.data$CellType_0.5)
+avg.exp <- AverageExpression(sub, genes.use=genes_to_use)
+avg.exp$gene <- row.names(avg.exp)
+#avg.exp$type <- "Krt"
+#avg.exp$cluster <- ident.use
+ligand_time[[paste0(stim,' ', "Saa1")]] <- avg.exp
+}
+write_xlsx(ligand_time, "Saa1_bytime.xlsx")
+
+
+
+combined<-SetIdent(combined, ident.use=combined@meta.data$stim)
+stim <- factor(combined@meta.data$stim,
+    levels=c("d0","d1", "d3", "d5", "d7", "d14", "d28")) 
+recept_time <- list()
+for (stim in c("d0","d1", "d3", "d5", "d7", "d14", "d28")){
+sub<- SubsetData(combined, ident.use = stim, subset.raw = T,  do.clean=T )
+sub<-SetIdent(sub, ident.use=sub@meta.data$CellType_0.5)
+avg.exp <- AverageExpression(sub, genes.use=genes)
+avg.exp$gene <- row.names(avg.exp)
+avg.exp$type <- "AllGenes"
+#avg.exp$cluster <- ident.use
+recept_time[[paste0(stim,' ', "AllGenes")]] <- avg.exp
+}
+ write_xlsx(recept_time, "AvgExpAllGenes_bytime.xlsx")
+
+```
+
+Make a basic heatmap plot to show the numbers.
+```{r}
+lev <- names(sort(rowMeans(interactions)))
+idat$ligand <- factor(idat$ligand, levels=lev)
+idat$receptor <- factor(idat$receptor, levels=lev)
+gi <- ggplot(idat, aes(x=ligand, y=receptor)) +
+  geom_tile(aes(fill=value)) +
+  theme(axis.text.x=element_text(angle=90)) +
+  scale_fill_distiller(palette="Greens") + theme_bw(base_size=16) +
+  theme(axis.text.x=element_text(angle=90))
+```
+###Upstream regulator identified with IPA A= predicted based on upregulation of Acta2 at d3, B predicted for d1
+```{r}
+A <- read_xlsx("/Users/fortee/Documents/SINGLE CELL EXPERIMENTS/RNAseq_timeline_postMI/Results/subclustering/subclusters/Seurat3Merged3225_1717subclusters/D3UPSTREAMREG_predictedBasedOnActa2.xlsx", sheet=1, col_names=TRUE)
+genesA <- A[,1]
+A <- add_column(A, type="d3Acta2")
+B <- read_xlsx("/Users/fortee/Documents/SINGLE CELL EXPERIMENTS/RNAseq_timeline_postMI/Results/subclustering/subclusters/Seurat3Merged3225_1717subclusters/D1 Upstream analysis.xlsx", sheet=1, col_names=TRUE)
+genesB <- B[,1]
+
+Common <- intersect( genesB,genesA)  # things in A and in B
+Unique <- unique(c(genesB,genesA))
+onlyA <- setdiff(genesA,genesB)
+onlyB<- setdiff(genesB,genesA)
+A <- as.data.frame(A)
+onlyA <- as.data.frame(onlyA)
+
+library(dplyr)
+Subset <- A %>%
+      filter(`Upstream Regulator` %in% onlyA$`Upstream Regulator`)
+SubsetB <- B %>%
+      filter(`Upstream Regulator` %in% onlyB$`Upstream Regulator`)
+d3common <- A %>%
+      filter(`Upstream Regulator` %in% Common$`Upstream Regulator`)
+d1common<- B %>%
+      filter(`Upstream Regulator` %in% Common$`Upstream Regulator`)
+d1common <- add_column(d1common, type="d1Acta2")
+d1unique<- B %>%
+      filter(`Upstream Regulator` %in% onlyB$`Upstream Regulator`)
+d1unique <- add_column(d1unique, type="d1only")
+Commonmerged31 <- merge(d3common, d1common, by="Upstream Regulator")
+write.csv(Subset, "Acta2UpsreamRegulatorsOnlyd3.csv")
+write.csv(SubsetB, "UpsreamRegulatorsOnlyd1_vs_d3.csv")
+write.csv(d3common, "SharedUpstreamRegulatorsD3.csv")
+write.csv(d1common, "SharedUpstreamRegulatorsD1.csv")
+write.csv(Commonmerged, "SharedUpstreamRegulatorsD3D1.csv")
+getwd()
+```
+
+```{r}
+A <- read_xlsx("/Users/fortee/Documents/SINGLE CELL EXPERIMENTS/RNAseq_timeline_postMI/Results/subclustering/subclusters/Seurat3Merged3225_1717subclusters/D3UPSTREAMREG_predictedBasedOnActa2.xlsx", sheet=1, col_names=TRUE)
+genesA <- A[,1]
+#d7
+C <- read_xls("/Users/fortee/Documents/SINGLE CELL EXPERIMENTS/RNAseq_timeline_postMI/Results/subclustering/subclusters/Seurat3Merged3225_1717subclusters/D7 Upstream analysis.xls", sheet=1, col_names=TRUE,skip=1)
+genesC <- C[,1]
+
+Common <- intersect( genesC,genesA)  # things in A and in B
+Unique <- unique(c(genesC,genesA))
+onlyA <- setdiff(genesA,genesC)
+onlyC<- setdiff(genesC,genesA)
+A <- as.data.frame(A)
+onlyA <- as.data.frame(onlyA)
+
+library(dplyr)
+Subset <- A %>%
+      filter(`Upstream Regulator` %in% onlyA$`Upstream Regulator`)
+SubsetC <- C %>%
+      filter(`Upstream Regulator` %in% onlyC$`Upstream Regulator`)
+d3common <- A %>%
+      filter(`Upstream Regulator` %in% Common$`Upstream Regulator`)
+d7common<- C %>%
+      filter(`Upstream Regulator` %in% Common$`Upstream Regulator`)
+d7common <- add_column(d7common, type="d7Acta2")
+d7unique<- C %>%
+      filter(`Upstream Regulator` %in% onlyC$`Upstream Regulator`)
+d7unique <- add_column(d7unique, type="d7only")
+Commonmerged37 <- merge(d3common, d7common, by="Upstream Regulator")
+write.csv(Subset, "Acta2UpsreamRegulatorsOnlyd3_vs_d7.csv")
+write.csv(SubsetC, "UpsreamRegulatorsOnlyd7_vs_d3.csv")
+#write.csv(d3common, "SharedUpstreamRegulatorsD3.csv")
+#write.csv(d1common, "SharedUpstreamRegulatorsD1.csv")
+write.csv(Commonmerged, "SharedUpstreamRegulatorsD3D7.csv")
+getwd()
+
+
+```
+
+```{r}
+A <- read_xlsx("/Users/fortee/Documents/SINGLE CELL EXPERIMENTS/RNAseq_timeline_postMI/Results/subclustering/subclusters/Seurat3Merged3225_1717subclusters/D3UPSTREAMREG_predictedBasedOnActa2.xlsx", sheet=1, col_names=TRUE)
+genesA <- A[,1]
+#d7
+D <- read_xls("/Users/fortee/Documents/SINGLE CELL EXPERIMENTS/RNAseq_timeline_postMI/Results/subclustering/subclusters/Seurat3Merged3225_1717subclusters/D14 Upstream analysis.xls", sheet=1, col_names=TRUE,skip=1)
+genesD <- D[,1]
+
+Common <- intersect( genesD,genesA)  # things in A and in B
+Unique <- unique(c(genesD,genesA))
+onlyA <- setdiff(genesA,genesD)
+onlyD<- setdiff(genesD,genesA)
+A <- as.data.frame(A)
+onlyA <- as.data.frame(onlyA)
+
+library(dplyr)
+Subset <- A %>%
+      filter(`Upstream Regulator` %in% onlyA$`Upstream Regulator`)
+SubsetD <- D %>%
+      filter(`Upstream Regulator` %in% onlyD$`Upstream Regulator`)
+d3common <- A %>%
+      filter(`Upstream Regulator` %in% Common$`Upstream Regulator`)
+d14common<- D %>%
+      filter(`Upstream Regulator` %in% Common$`Upstream Regulator`)
+d14common <- add_column(d14common, type="d14Acta2")
+d14unique<- D %>%
+      filter(`Upstream Regulator` %in% onlyD$`Upstream Regulator`)
+d14unique <- add_column(d14unique, type="d14only")
+
+Commonmerged314 <- merge(d3common, d14common, by="Upstream Regulator")
+write.csv(Subset, "Acta2UpsreamRegulatorsOnlyd3_vs_d14.csv")
+write.csv(SubsetD, "UpsreamRegulatorsOnlyd14_vs_d3.csv")
+#write.csv(d3common, "SharedUpstreamRegulatorsD3.csv")
+#write.csv(d1common, "SharedUpstreamRegulatorsD1.csv")
+write.csv(Commonmerged, "SharedUpstreamRegulatorsD3D14.csv")
+getwd()
+
+
+```
+
+```{r}
+
+
+
+d1unique <- d1unique[1:20,]
+d7unique <- d7unique[1:20,]
+d14unique <- d14unique[1:20,]
+
+datasets <- list(A, d1common, d1unique, d7common, d7unique, d14common, d14unique)
+
+Combined <- bind_rows(datasets) 
+#merge()
+#for i in list
+
+ #df <- data.frame(matrix(unlist(dat1), nrow=1790, byrow=T),stringsAsFactors=FALSE)
+ Combined$type <- factor(Combined$type, levels = c("d3Acta2","d1Acta2","d1only" ,"d7Acta2","d7only","d14Acta2","d14only"))
+Combined$type
+
+colnames(Combined)[1] <- "Upstream_Regulators"
+colnames(Combined)[3] <- "MoleculeTypes"
+colnames(Combined)[4] <- "Status"
+colnames(Combined)[7] <- "p_value_overlap"
+
+q <-  ggplot(Combined, aes(x=type, y=Upstream_Regulator)) +
+	geom_point(aes(color=Status, shape=MoleculeType) , size=-log10(pval_overlap)) + theme_bw(base_size=18) +
+	xlab("time") + ylab("UpstreamRegulators") + scale_size(trans='log10', range=c(1, 10))+coord_flip()
+	q + theme(axis.text.x = element_text(angle = 90, hjust = 1))
+###CORRECT!	
+	q <-  ggplot(Combined, aes(x=type, y=Upstream_Regulators)) +
+	geom_point(aes(color=Status, size=-log10(p_value_overlap))) + theme_bw(base_size=18) +
+	xlab("time") + ylab("UpstreamRegulators") + scale_size(trans='log10', range=c(1, 10))
+	q + theme(axis.text.x = element_text(angle = 90, hjust = 1))
+```
+
+```{r}
+Combined <- read_xlsx("/Users/fortee/Documents/SINGLE CELL EXPERIMENTS/RNAseq_timeline_postMI/Results/subclustering/subclusters/Seurat3Merged3225_1717subclusters/UpstreamRegulatorsTop20.xlsx", sheet=1, col_names=TRUE, skip=1)
+ 
+
+colnames(Combined)[1] <- "Upstream_Regulators"
+colnames(Combined)[3] <- "MoleculeTypes"
+colnames(Combined)[4] <- "Status"
+colnames(Combined)[7] <- "p_value_overlap"
+Combined$Type <- factor(Combined$Type, levels = c("Homeo","D1","D3" ,"D5","D7","D14","D28"))
+Combined$Type
+q <-  ggplot(Combined, aes(x=Type, y=Upstream_Regulators)) +
+	geom_point(aes(color=Status, size=-log10(p_value_overlap))) + theme_bw(base_size=18) +
+	xlab("time") + ylab("UpstreamRegulators") + scale_size(trans='log10', range=c(1, 10))
+	q + theme(axis.text.x = element_text(angle = 90, hjust = 1))
+```
+

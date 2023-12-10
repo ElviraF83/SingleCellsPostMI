@@ -1,0 +1,112 @@
+
+```{r}
+library(dplyr)
+
+library(Seurat)
+library(Matrix)
+require(openxlsx)
+library(scales)
+library(plyr)
+library(stringr)
+
+wd<-"/Users/fortee/Documents/SINGLE CELL EXPERIMENTS/RNAseq_timeline_postMI"  
+foldername <- "Data"
+combined<-readRDS(file.path(wd,foldername,"agg_res5_combined.rds"))
+new.ident <- c("Fibroblasts I","Macrophages","Endothelial","Monocytes I","Myofibroblasts","B cells","Fibroblasts II","Fibroblasts III","DCs","Monocyte II","NK_T cells","Granulocytes","Epicardium","SMCs_Pericytes","Lymphatic ECs","Schwann cells")
+
+for (i in 0:15) {
+ combined <- RenameIdent(object = combined, old.ident.name = i, 
+                                 new.ident.name = new.ident[i + 1])
+}
+combined<-StashIdent(combined, save.name = "CellType_0.5")
+ID <- combined@meta.data$stim
+
+write.csv(ID, file="/Users/fortee/Desktop/aggregateID.csv")
+
+saveRDS(combined, file="/Users/fortee/Documents/SINGLE CELL EXPERIMENTS/RNAseq_timeline_postMI/Data/AggregatePC24res0.5withNames.rds" )
+combined <- readRDS("/Users/fortee/Documents/SINGLE CELL EXPERIMENTS/RNAseq_timeline_postMI/Data/AggregatePC24res0.5withNames.rds")
+VlnPlot(object = combined, features.plot = ("zsgreen") , y.log = TRUE)
+VlnPlot(object = combined, features.plot = ("Htra3"), y.log = TRUE)
+VlnPlot(object = combined, features.plot = "zsgreen", use.raw = TRUE, y.log = TRUE)
+VlnPlot(object = combined, features.plot = c("Pdpn"), use.raw = TRUE, y.log = TRUE, x.lab.rot = TRUE)
+
+genes_to_use <- grep("^Clec2", rownames(combined@data), value=T)
+genes_to_use
+
+genes <- c("zsgreen", "Pdgfra", "Pdgfrb", "Acta2", "Prox1","Cd34", "Lyve1", "Flt4", "Pdpn")
+genes2 <- c("zsgreen", "Pdgfra", "Pdgfrb", "Acta2", "Tcf21","Tbx20", "Col1a1", "Col3a1", "Wt1")
+VlnPlot(object = combined, features.plot = genes2, use.raw = TRUE, y.log = TRUE, x.lab.rot = TRUE)
+
+
+TSNEPlot(combined, do.label = T, do.return = T, pt.size = 0.5, colors.use = c("chartreuse3","chocolate","#999999","#ff8c00","forestgreen","#0000ac","#49ffad","#003300","cornflowerblue","#ffb300","cyan3","#7f7fe3","#adff49","firebrick","coral","dimgray"),width=1200, height = 750, units = "px",pointsize = 12.5, res=600, font=2)
+TSNEPlot(combined, do.label = T, do.return = T, pt.size = 0.5, ,width=1200, height = 750, units = "px",pointsize = 18, res=600, font=4, colors.use = c("chartreuse3","chocolate","#999999","#ff8c00","forestgreen","#0000ac","#49ffad","#003300","cornflowerblue","#ffb300","cyan3","#7f7fe3","#adff49","firebrick","coral","dimgray"))
+#HeatMap
+BuildClusterTree(combined, do.reorder = T, reorder.numeric = T)
+```
+
+```{r}
+combined<- SetIdents(combined, combined@meta.data$stim)
+
+Homeo <- SubsetData(combined, ident.use = "d0", subset.raw = T,  do.clean=T)
+FeaturePlot(Homeo, features="Fslt1")
+```
+
+Plot percentage 
+
+```{r}
+n_cluster = nlevels(combined@ident)
+my_color_palette <- c("chartreuse3","chocolate","#999999","#ff8c00","forestgreen","#0000ac","#49ffad","#003300","cornflowerblue","#ffb300","cyan3","#7f7fe3","#adff49","firebrick","coral","dimgray")   #### CHANGE THIS LINE TO MODIFY COLOR, eg,  my_color_palette = c(color1, color2 ...)
+cell_count = table(combined@ident, combined@meta.data$stim)
+dat2=data.frame(sweep(cell_count,MARGIN=2,FUN="/",STATS=colSums(cell_count)))
+colnames(dat2)=c("cluster", "sample", "percentage")
+dat2 <- ddply(dat2, .(sample),transform, pos = cumsum(percentage) - (0.5 * percentage))
+dat2$sample <- factor(dat2$sample, levels = levels(combined@meta.data$stim))
+p <- ggplot(dat2, aes(x=sample, y=percentage, fill=cluster)) +
+  geom_bar(stat='identity',position =position_fill(reverse = TRUE) ,  colour="grey") +
+    scale_fill_manual(values=my_color_palette)
+  # + scale_y_continuous(expand = c(0,0),limits = c(0,1))
+p<-p+ geom_text(data=dat2, aes(x = sample, y = pos, label = paste0(format(round(percentage*100, 1), nsmall =1 ),"%")), size=4)
+
+p
+##Try to remove perecentage label
+p <- ggplot(dat2, aes(x=sample, y=percentage, fill=cluster)) +
+  geom_bar(stat='identity',position =position_fill(reverse = TRUE) ,  colour="grey") +
+    scale_fill_manual(values=my_color_palette)
+  # + scale_y_continuous(expand = c(0,0),limits = c(0,1))
+
+p
+glimpse(dat2)
+library("xlsx")
+write.xlsx(dat2, file="/Users/fortee/Documents/SINGLE CELL EXPERIMENTS/RNAseq_timeline_postMI/Aggregate_percentages_PC24res.5.xlsx",sheetName="Sheet1", col.names=TRUE, row.names=TRUE, append=FALSE)
+
+```
+differential expression(~20 mins)
+
+```{r}
+start_time <- Sys.time()
+all_markers <-FindAllMarkers(object = combined,only.pos = TRUE, min.pct = 0.25, thresh.use = 0.25)
+#all_markers<-split(all_markers, f = all_markers$cluster )
+end_time <- Sys.time()
+end_time - start_time
+```
+```{r}
+top_markers <- all_markers %>% group_by(cluster) %>% top_n(10, avg_logFC)
+# setting slim.col.label to TRUE will print just the cluster IDS instead of
+# every cell name
+genesM <- scan(file="/Users/fortee/Desktop/genesM.csv", what="character")
+DoHeatmap(object = combined, genes.use = genesM, slim.col.label = TRUE, remove.key = TRUE)
+DoHeatmap(object = combined, genes.use = genes, slim.col.label = TRUE, remove.key = TRUE, group.label.rot = T)
+#features.plot<-c("zsgreen", "Col1a1","Gsn","C1qa","Ms4a7", "Fabp4", "Pecam1", "Chil3", "Plac8","Ly6c2","Cd14", "Cthrc1","Postn", "Acta2","Cd79a","H2-DMb2","Wif1", "Dkk3", "Mt1", "H2-Ab1", "Cd74","Arg1","Itgam","Saa3", "Nkg7", "Cd3d", "S100a9", "Clu", "Wt1", "Dmkn", "Rgs5", "Kcnj8", "P2ry14", "Lyve1","Cldn5", "Plp1", "Kcna1")
+features.plot<-c("zsgreen", "Wt1","Clu","Dmkn","Col1a1","Gsn","C1qa","Ms4a7", "Fabp4", "Pecam1", "Chil3", "Plac8","Ly6c2","Cd14", "Cthrc1","Postn", "Acta2","Cd79a","H2-DMb2","Wif1", "Dkk3", "Mt1", "H2-Ab1", "Cd74","Arg1","Itgam","Saa3", "Nkg7", "Cd3d", "S100a9", "Rgs5", "Kcnj8", "P2ry14", "Lyve1","Cldn5", "Plp1", "Kcna1")
+DotPlot(object = combined, genes.plot = rev(features.plot), plot.legend = TRUE, x.lab.rot = TRUE, do.return=TRUE)+ theme(axis.text.x=element_text(face='italic'))
+#theme(axis.text.x=element_text(face='italic'))
+RidgePlot(object = combined, features.plot = "Wt1", nCol = 2, cols.use=my_color_palette, legend.position = "right", single.legend = TRUE, remove.legend = TRUE)
+features.plot<-c("zsgreen", "Col1a1","Gsn","C1qa","Ms4a7", "Fabp4", "Pecam1", "Plac8","Ly6c2","Cd14", "Cthrc1","Postn", "Acta2","Cd79a","H2-DMb2","Wif1", "Dkk3", "Mt1", "H2-Ab1", "Cd74")
+  #"Arg1","Itgam","Fcer1g", "Nkg7", "Cd3d", "S100a9", "Clu", "Wt1", "Dmkn", "Rgs5", "Kcnj8", "P2ry14", "Lyve1","Cldn5", "Plp1", "Kcna1")
+FeaturePlot(object = combined, features.plot = features.plot, cols.use = c("lightgrey", "blue"))
+avg_expr <- AverageExpression(combined, genes.use=genes)
+genes <- as.list(genes)
+genes <- unique(genes)
+avg_expr
+```
+

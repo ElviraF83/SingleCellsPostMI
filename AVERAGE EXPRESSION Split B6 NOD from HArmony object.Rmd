@@ -1,0 +1,373 @@
+---
+title: "Split NOD and B6 from Harmony object"
+author: "me"
+date: "4/25/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+library(tidyverse)
+library(assertthat)
+library(Seurat)
+library(readxl)
+library(pheatmap)
+library(writexl)
+setwd('/Users/fortee/Documents/SINGLE CELL EXPERIMENTS/RNAseq_timeline_postMI/Data/Harmony')
+
+#load('harmony_obj_sattler.RData')   
+load("harmony_obj_for_elvira.RData")# FOR PAPER ONLY 129
+result@meta.data$description <- with(result@meta.data, paste0(strain, " ", condition, " ", batch))
+#result@meta.data$descriptionF <- factor(result@meta.data$description,
+#    levels=c("B6 homeostasis 17010", "B6 sham 17004", "B6 sham 17008", 
+ #   "B6 MI 17014", "129 MI 18002", "129 sham 18001"))
+result@meta.data$descriptionF <- factor(result@meta.data$description,
+    levels=c("NOD sham 17002","NOD MI 17003","B6 sham 17004","B6 MI 17005","NOD sham 17006","NOD MI 17007","B6 sham 17008","B6 MI 17009","B6 homeostasis 17010","B6 MI 17013","B6 MI 17014","B6 MI 17015","B6 MI 17016","B6 MI 17017","B6 MI 17018","129 sham 18001","129 MI 18002","129 MI 18003"))
+#####
+result@meta.data$descriptionN <- factor(result@meta.data$description,
+    levels=c("B6 homeostasis 17010","B6 sham 17004","B6 sham 17008","129 sham 18001","NOD sham 17002","NOD sham 17006","B6 MI 17013","B6 MI 17014","129 MI 18002","B6 MI 17015","B6 MI 17016","B6 MI 17005","B6 MI 17009","129 MI 18003","NOD MI 17003","NOD MI 17007","B6 MI 17017","B6 MI 17018")) 
+#chemokine <- scan(file="/Users/fortee/Downloads/chemokine.csv", what="character")
+genes <- c("Cx3cr1","Ccr2","Mt2")
+gene="Cd163"
+genes <- c("Pdgfra","Eng","Tcf21", "Thy1", "Ly6a", "Brd4", "Hic1")
+genes=read_csv("/Users/fortee/Documents/SINGLE CELL EXPERIMENTS/RNAseq_timeline_postMI/Data/UpstreamActa2Genes.csv")
+cluster_data <- SubsetData(result, ident.use=cluster_num)
+  result<- SetAllIdent(result, id="descriptionN")
+  resultS<- SubsetData(result, ident.use=c("B6 sham 17004","B6 sham 17008","NOD sham 17002","NOD sham 17006","B6 MI 17005","B6 MI 17009","NOD MI 17003","NOD MI 17007"))
+  
+  allgenes <- result@data@Dimnames[1]
+  genes1 <- intersect(allgenes, genes)
+avg_expr <- AverageExpression(result, genes.use=genes)
+avg_exp <- renameavg_exp
+subset <- avg_exp%>%
+      filter(`Upstream Regulator` %in% genesA$`Upstream Regulator`)
+d7common <- add_column(d7common, type="d7Acta2")
+avg_exprS <- AverageExpression(resultS, genes.use=gene)
+avg_expr
+#avg_exprb <- read.csv("/Users/fortee/Desktop/AvgExpOrdered.csv")
+as.matrix(avg_exprb)
+write.csv(avg_expr, "/Users/fortee/Desktop/AvgMacromarkers.csv")
+	pheatmap(avg_exprS, scale='row', cluster_rows=TRUE, cluster_cols=FALSE)
+		pheatmap(avg_expr, scale='row', cluster_rows=TRUE, cluster_cols=FALSE)
+getwd()
+
+```
+```{r}
+mat <- GetAssayData(result, "counts")
+saveRDS(mat, file="/Users/fortee/Desktop/matrix.rds")
+```
+
+```{r}
+result<-SetIdent(result, ident.use=result@meta.data$res.0.6)
+new.ident <-  c("0"="Fibros", "1"="Macs", "2"="Myofb", "3"="ECs", "4"="PLS Fibros", "5"="Fibros", "6"="Monocytes", "7"="End Fibros", "8"="MacsB", "9"="B cells", "10"="Granulocytes", "11"="T cells", "12"="Prolif Myofb", "13"="DCs", "14"="Epi", "15"="Prolif Macs", "16"="Mt2 Myofb", "17"="Fibros","19"="SMC/Pericytes", "20"="Mono/Macs", "21"="ECsB", "22"="NK", "23"="IFNr", "24"="Lymph ECs", "25"="DCsB", "26"="ECsC", "27"="DCs myeloid", "28"="Schwann", "29"="B cellsB", "30"="Mast cells", "31"="B cellsC")
+for (i in 0:31) {
+result <- RenameIdent(object = result, old.ident.name = i, 
+                                new.ident.name = new.ident[i + 1])}
+result<-StashIdent(result, save.name = "CellType_M")
+
+ result<- SetAllIdent(result, id="CellType_M")
+  resultS<- SubsetData(result, ident.use=c("Fibros","PLS Fibros","End Fibros","Prolif Myofb","Epi","Mt2 Myofb"))
+ genes <- c("Pdgfra","Eng","Tcf21", "Thy1", "Ly6a", "Brd4", "Hic1") 
+ #allgenes <- result@data@Dimnames[1]
+#  genes1 <- intersect(allgenes, genes)
+avg_expr <- AverageExpression(resultS, genes.use=genes)
+write_xlsx(avg_expr, "/Users/fortee/Downloads/AverageCellSubtype.xlsx")
+resultS <- SetAllIdent(resultS, resultS@meta.data$descriptionF)
+avg_expr <- AverageExpression(resultS, genes.use=genes)
+
+resultS <- SetAllIdent(resultS, resultS@meta.data$CellType_M)
+#CellType_M <- factor(resultS@meta.data$CellType_M,levels=c("Fibros","PLS Fibros","End Fibros","Prolif Myofb","Epi","Mt2 Myofb"))
+CellType_M <- resultS@meta.data$CellType_M
+average <- list()
+for (clusters in c("Fibros","PLS Fibros","End Fibros","Prolif Myofb","Epi","Mt2 Myofb")){
+  
+  resultX <-  SubsetData(resultS, ident.use= clusters)
+  resultX<- SetIdent(resultX, id=resultX@meta.data$descriptionF)
+  avg_expr <- AverageExpression(resultX, genes.use=genes)
+  avg_expr$gene <- rownames(avg_expr)
+  average[[paste0(this_cluster, " ")]] <- avg_expr
+}
+
+
+
+resultS <- SetAllIdent(result, result@meta.data$CellType_M)
+resultX <-  SubsetData(result, ident.use= "Myofb")
+#resultX@meta.data$descriptionF <- factor(resultX@meta.data$description,
+   # levels=c("NOD sham 17002","NOD MI 17003","B6 sham 17004","B6 MI 17005","NOD sham 17006","NOD MI 17007","B6 sham 17008","B6 MI 17009","B6 homeostasis 17010","B6 MI 17013","B6 MI 17014","B6 MI 17015","B6 MI 17016","B6 MI 17017","B6 MI 17018","129 sham 18001","129 MI 18002","129 MI 18003"))
+  resultX<- SetIdent(resultX, id=resultX@meta.data$descriptionF)
+  avg_expr <- AverageExpression(resultX, genes.use=genes)
+  avg_expr$gene <- rownames(avg_expr)
+  average[[paste0(this_cluster, " ")]] <- avg_expr
+  
+  write_xlsx(avg_expr, "/Users/fortee/Downloads/AverageMyofbCellSubtype.xlsx")
+avg_exp <- renameavg_exp
+subset <- avg_exp%>%
+      filter(`Upstream Regulator` %in% genesA$`Upstream Regulator`)
+d7common <- add_column(d7common, type="d7Acta2")
+avg_exprS <- AverageExpression(resultS, genes.use=gene)
+avg_expr
+#avg_exprb <- read.csv("/Users/fortee/Desktop/AvgExpOrdered.csv")
+as.matrix(avg_exprb)
+write.csv(avg_expr, "/Users/fortee/Desktop/AvgMacromarkers.csv")
+	pheatmap(avg_exprS, scale='row', cluster_rows=TRUE, cluster_cols=FALSE)
+		pheatmap(avg_expr, scale='row', cluster_rows=TRUE, cluster_cols=FALSE)
+getwd()
+```
+
+```{r}
+clusters <- result@meta.data$descriptionF
+for (i in 1:length(clusters)) {
+  cluster_num <-clusters[i]
+  #avg_expr_cluster <- avg_expr[, cluster_num, drop=FALSE]
+  cluster_data <- SubsetData(result, ident.use=cluster_num)
+  #cluster_data <- SetAllIdent(cluster_data, id="description")
+  
+  #genes_to_use <- unique(chemokine)
+  #genes_to_use <- genes_to_use[genes_to_use %in% rownames(cluster_data@data)]
+  #genes_to_use <- genes_to_use[genes_to_use %in% y]
+  genes_to_use <- gene#"Cd163"
+  
+  avg_expr <- AverageExpression(cluster_data, genes.use=genes_to_use)
+ 
+  group_labels <- unique(groups$Label)
+  genes <- split(groups[[gene_col]], f=groups$Label)
+  
+  expression_matrices <- lapply(genes, function(gene_names) avg_expr[gene_names, , drop=FALSE])
+  expression_summaries <- lapply(expression_matrices, summary_function)
+  to_plot <- do.call("rbind", expression_summaries)[, sample_levels]
+  # Remove rows that are not variable:
+  to_plot <- to_plot[apply(to_plot, 1, sd) > 0, ]
+ 
+  # Uncomment rows below to save plotname <- paste0(make.names("genesMonoclone"), "_cluster", cluster_num, "_dotplot.png")
+ # filename <- paste0(make.names('IPAFibrosisCytosolTest_'), clusters[i], '.png')
+# png(filename, width=0.1*ncol(to_plot) + 7, height=0.2*nrow(to_plot)+4 , units='in', res=150)
+  pheatmap(to_plot, scale='row', cluster_rows=TRUE, cluster_cols=FALSE)
+  dev.off()
+ # getwd()
+}
+
+a <- result@meta.data$batch[""]
+```
+
+
+Plot Percentage (optional)
+```{r}
+result<-SetIdent(result, ident.use=result@meta.data$res.0.6)
+n_cluster = nlevels(result@ident)
+#my_color_palette <- c("chartreuse3","olivedrab","limegreen","cyan3","grey60","firebrick","blue","chocolate","turquoise","lightskyblue","grey50", "grey40")    #### CHANGE THIS LINE TO MODIFY COLOR, eg,  my_color_palette = c(color1, color2 ...)
+cell_count = table(result@ident, result@meta.data$descriptionF)
+dat2=data.frame(sweep(cell_count,MARGIN=2,FUN="/",STATS=colSums(cell_count)))
+colnames(dat2)=c("cluster", "sample", "percentage")
+dat2 <- ddply(dat2, .(sample),transform, pos = cumsum(percentage) - (0.5 * percentage))
+dat2$sample <- factor(dat2$sample, levels = levels(result@meta.data$descriptionF))
+p <- ggplot(dat2, aes(x=sample, y=percentage, fill=cluster)) +
+  geom_bar(stat='identity',position =position_fill(reverse = TRUE) ,  colour="grey") #+
+    #scale_fill_manual(values=my_color_palette)
+  # + scale_y_continuous(expand = c(0,0),limits = c(0,1))
+p<-p+ geom_text(data=dat2, aes(x = sample, y = pos, label = paste0(format(round(percentage*100, 1), nsmall =1 ),"%")), size=4)
+
+p
+
+dat2<-split(dat2, f = dat2$sample )
+    write.xlsx(dat2, paste0("_frequency.xlsx"), sheetName=paste0("sample ", 1:length(dat2)-1))
+getwd()
+#write.csv(cell_count, file="cellcountHarmony.csv", row.names = TRUE)
+write.xlsx(cell_count, file="cellcountHarmony.xlsx", row.names = TRUE)
+getwd()
+```
+```{r}
+#NOD sham 
+#named_ident <- as.character(result@meta.data[, "res.0.6"])
+#names(named_ident) <- result@cell.names
+result<-SetIdent(result, ident.use=result@meta.data$res.0.6)
+new.ident <-  c("0"="Fibros", "1"="Macs", "2"="Myofb", "3"="ECs", "4"="PLS Fibros", "5"="FibrosB", "6"="Monocytes", "7"="End Fibros", "8"="MacsB", "9"="B cells", "10"="Granulocytes", "11"="T cells", "12"="Prolif Myofb", "13"="DCs", "14"="Epi", "15"="Prolif Macs", "16"="Mt2 Myofb", "17"="FibrosC","19"="SMC/Pericytes", "20"="Mono/Macs", "21"="ECsB", "22"="NK", "23"="IFNr", "24"="Lymph ECs", "25"="DCsB", "26"="ECsC", "27"="DCs myeloid", "28"="Schwann", "29"="B cellsB", "30"="Mast cells", "31"="B cellsC")
+for (i in 0:31) {
+result <- RenameIdent(object = result, old.ident.name = i, 
+                                new.ident.name = new.ident[i + 1])}
+result<-StashIdent(result, save.name = "CellType_0.5")
+```
+
+```{r}
+result<-SetAllIdent(result, id="descriptionF")
+result<-SetAllIdent(result, id="CellType_0.5")
+
+#ident_use<-c("DCs", "DCsB","DCs myeloid") #"Cd3d"
+#DCs<- SubsetData(Smaller, ident.use = ident_use, subset.raw = T,  do.clean=T )
+#DCs<-SetIdent(DCs, ident.use=result@meta.data$descriptionF)
+#cluster.averages <-AverageExpression(DCs,return.seurat = TRUE, show.progress = FALSE)
+#avg2 <- AverageExpression(result1)
+#cluster.colmeans<-colMeans(cluster.averages@data[result1@var.genes,])
+##average expression of all genes in a cluster for each time points
+#barplot(cluster.colmeans, main = paste("Average Expression for", ident_use ))
+barplot(table(result@ident), main = paste("Num of cells for",ident_use))
+cell_count = table(result@ident, result@meta.data$descriptionF)
+
+write.csv(cell_count, file="cellcountHarmonyallcells.csv", row.names = TRUE) 
+getwd()
+```
+
+```{r}
+result<-SetIdent(result, ident.use=result@meta.data$CellType_0.5)
+Myloid <- SubsetData(result, ident.use = c("Macs", "Monocytes","MacsB","Prolif Macs","Mono/Macs"))
+ Myloid<- SetAllIdent(Myloid, id="descriptionN")
+ # MyloidS<- SubsetData(Myloid, ident.use=c("B6 sham 17004","B6 sham 17008","NOD sham 17002","NOD sham 17006","B6 MI 17005","B6 MI 17009","NOD MI 17003","NOD MI 17007"))
+avg_expr <- AverageExpression(Myloid, genes.use=gene)
+#avg_exprS <- AverageExpression(MyloidS, genes.use=gene)
+avg_expr
+avg_exprb <- read.csv("/Users/fortee/Desktop/AvgExpOrdered.csv")
+as.matrix(avg_exprb)
+write.csv(avg_expr, "/Users/fortee/Desktop/AvgExpOrderedMyeloid.csv")
+```
+
+```{r}
+
+result<-SetAllIdent(result, id="descriptionF")
+NODSham<-SubsetData(result, ident.use = c("NOD sham 17002", "NOD sham 17006"))
+
+NODSham<-SetIdent(NODSham, ident.use=NODSham@meta.data$res.0.6)
+
+##FOR SPRING
+data<-NODSham@data
+genes<-NODSham@data@Dimnames[1]
+time<-as.list(as.character(NODSham@meta.data$stim))
+types<-as.list(as.character(NODSham@meta.data$CellType_0.5))
+
+writeMM(data,file="/Users/fortee/Documents/SINGLE CELL EXPERIMENTS/RNAseq_timeline_postMI/Data/Spring/ShamNODCombined.mtx")
+write.csv(genes,file="/Users/fortee/Documents/SINGLE CELL EXPERIMENTS/RNAseq_timeline_postMI/Data/Spring/GenesShamNODCombined.csv",row.names = FALSE)
+write.csv(time,file="/Users/fortee/Documents/SINGLE CELL EXPERIMENTS/RNAseq_timeline_postMI/Data/Spring/TimeShamNODCombined.csv",row.names = FALSE)
+write.csv(types,file="/Users/fortee/Documents/SINGLE CELL EXPERIMENTS/RNAseq_timeline_postMI/Data/Spring/TypesShamNODCombined.csv",row.names = FALSE)
+
+##FOR AVERAGE EXPRESSION
+cluster.averages <-AverageExpression(NODSham,return.seurat = TRUE, show.progress = FALSE)
+
+#avg2 <- AverageExpression(NODSham)
+cluster.colmeans<-colMeans(cluster.averages@data[NODSham@var.genes,])
+
+NODSham_ave<-cluster.averages@data
+as.matrix(NODSham_ave)
+write.csv(as.matrix(NODSham_ave), file = "/Users/fortee/Documents/SINGLE CELL EXPERIMENTS/RNAseq_timeline_postMI/Results/NODSham_ave_expr.csv")
+```
+
+
+```{r}
+result<-SetAllIdent(result, id="descriptionF")
+NODMI<-SubsetData(result, ident.use = c("NOD MI 17003", "NOD MI 17007"))
+#MI129<-SetAllIdent(MI129, ident.use="MI129@meta.data$res.0.6")
+NODMI<-SetIdent(NODMI, ident.use=NODMI@meta.data$res.0.6)
+
+new.ident <- c("0"="Fibros", "1"="Macs", "2"="Myofb", "3"="ECs", "4"="PLS Fibros", "5"="FibrosB", "6"="Monocytes", "7"="End Fibros", "8"="MacsB", "9"="B cells", "10"="Granulocytes", "11"="T cells", "12"="Prolif Myofb", "13"="DCs", "14"="Epi", "15"="Prolif Macs", "16"="Mt2 Myofb", "17"="FibrosC","19"="SMC/Pericytes", "20"="Mono/Macs", "21"="ECsB", "22"="NK", "23"="IFNr", "24"="Lymph ECs", "25"="DCsB", "26"="ECsC", "27"="DCs myeloid", "28"="Schwann", "29"="B cellsB", "30"="Mast cells", "31"="B cellsC")
+
+for (i in 0:31) {
+NODMI <- RenameIdent(object = NODMI, old.ident.name = i, 
+                                new.ident.name = new.ident[i + 1])}
+
+NODMI<-StashIdent(NODMI, save.name = "CellType_0.5")
+
+
+data<-NODMI@data
+genes<-NODMI@data@Dimnames[1]
+time<-as.list(as.character(NODMI@meta.data$stim))
+types<-as.list(as.character(NODMI@meta.data$CellType_0.5))
+sample<-as.list(as.character(NODMI@meta.data$description))
+writeMM(data,file="/Users/fortee/Documents/SINGLE CELL EXPERIMENTS/RNAseq_timeline_postMI/Data/Spring/NODMIduplicate.mtx")
+write.csv(genes,file="/Users/fortee/Documents/SINGLE CELL EXPERIMENTS/RNAseq_timeline_postMI/Data/Spring/GenesNODMIduplicate.csv",row.names = FALSE)
+write.csv(time,file="/Users/fortee/Documents/SINGLE CELL EXPERIMENTS/RNAseq_timeline_postMI/Data/Spring/TimeNODMIduplicate.csv",row.names = FALSE)
+write.csv(types,file="/Users/fortee/Documents/SINGLE CELL EXPERIMENTS/RNAseq_timeline_postMI/Data/Spring/TypesNODMIduplicate.csv",row.names = FALSE)
+write.csv(sample,file="/Users/fortee/Documents/SINGLE CELL EXPERIMENTS/RNAseq_timeline_postMI/Data/Spring/SampleNODMIduplicate.csv",row.names = FALSE)
+```
+("NOD sham 17002","NOD MI 17003","B6 sham 17004","B6 MI 17005","NOD sham 17006","NOD MI 17007","B6 sham 17008","B6 MI 17009","B6 homeostasis 17010","B6 MI 17013","B6 MI 17014","B6 MI 17015","B6 MI 17016","B6 MI 17017","B6 MI 17018","129 sham 18001","129 MI 18002","129 MI 18003"))
+```{r}
+result<-SetAllIdent(result, id="descriptionF")
+B6S<-SubsetData(result, ident.use = c("B6 sham 17004", "B6 sham 17008"))
+#MI129<-SetAllIdent(MI129, ident.use="MI129@meta.data$res.0.6")
+B6S<-SetIdent(B6S, ident.use=B6S@meta.data$res.0.6)
+
+new.ident <- c("0"="Fibros", "1"="Macs", "2"="Myofb", "3"="ECs", "4"="PLS Fibros", "5"="FibrosB", "6"="Monocytes", "7"="End Fibros", "8"="MacsB", "9"="B cells", "10"="Granulocytes", "11"="T cells", "12"="Prolif Myofb", "13"="DCs", "14"="Epi", "15"="Prolif Macs", "16"="Mt2 Myofb", "17"="FibrosC","19"="SMC/Pericytes", "20"="Mono/Macs", "21"="ECsB", "22"="NK", "23"="IFNr", "24"="Lymph ECs", "25"="DCsB", "26"="ECsC", "27"="DCs myeloid", "28"="Schwann", "29"="B cellsB", "30"="Mast cells", "31"="B cellsC")
+
+for (i in 0:31) {
+B6S <- RenameIdent(object = B6S, old.ident.name = i, 
+                                new.ident.name = new.ident[i + 1])}
+
+B6S<-StashIdent(B6S, save.name = "CellType_0.5")
+
+
+data<-B6S@data
+genes<-B6S@data@Dimnames[1]
+time<-as.list(as.character(B6S@meta.data$stim))
+types<-as.list(as.character(B6S@meta.data$CellType_0.5))
+sample<-as.list(as.character(B6S@meta.data$description))
+writeMM(data,file="/Users/fortee/Documents/SINGLE CELL EXPERIMENTS/RNAseq_timeline_postMI/Data/Spring/B6Sduplicate.mtx")
+write.csv(genes,file="/Users/fortee/Documents/SINGLE CELL EXPERIMENTS/RNAseq_timeline_postMI/Data/Spring/GenesB6Sduplicate.csv",row.names = FALSE)
+write.csv(time,file="/Users/fortee/Documents/SINGLE CELL EXPERIMENTS/RNAseq_timeline_postMI/Data/Spring/TimeB6Sduplicate.csv",row.names = FALSE)
+write.csv(types,file="/Users/fortee/Documents/SINGLE CELL EXPERIMENTS/RNAseq_timeline_postMI/Data/Spring/TypesB6Sduplicate.csv",row.names = FALSE)
+write.csv(sample,file="/Users/fortee/Documents/SINGLE CELL EXPERIMENTS/RNAseq_timeline_postMI/Data/Spring/SampleB6Sduplicate.csv",row.names = FALSE)
+```
+```{r}
+result<-SetAllIdent(result, id="descriptionF")
+B6MI<-SubsetData(result, ident.use = c("B6 MI 17005", "B6 MI 17009"))
+#MI129<-SetAllIdent(MI129, ident.use="MI129@meta.data$res.0.6")
+B6MI<-SetIdent(B6MI, ident.use=B6MI@meta.data$res.0.6)
+
+new.ident <- c("0"="Fibros", "1"="Macs", "2"="Myofb", "3"="ECs", "4"="PLS Fibros", "5"="FibrosB", "6"="Monocytes", "7"="End Fibros", "8"="MacsB", "9"="B cells", "10"="Granulocytes", "11"="T cells", "12"="Prolif Myofb", "13"="DCs", "14"="Epi", "15"="Prolif Macs", "16"="Mt2 Myofb", "17"="FibrosC","19"="SMC/Pericytes", "20"="Mono/Macs", "21"="ECsB", "22"="NK", "23"="IFNr", "24"="Lymph ECs", "25"="DCsB", "26"="ECsC", "27"="DCs myeloid", "28"="Schwann", "29"="B cellsB", "30"="Mast cells")
+
+for (i in 0:30) {
+B6MI <- RenameIdent(object = B6MI, old.ident.name = i, 
+                                new.ident.name = new.ident[i + 1])}
+
+B6MI<-StashIdent(B6MI, save.name = "CellType_0.5")
+
+data<-B6MI@data
+genes<-B6MI@data@Dimnames[1]
+time<-as.list(as.character(B6MI@meta.data$stim))
+types<-as.list(as.character(B6MI@meta.data$CellType_0.5))
+sample<-as.list(as.character(B6MI@meta.data$description))
+writeMM(data,file="/Users/fortee/Documents/SINGLE CELL EXPERIMENTS/RNAseq_timeline_postMI/Data/Spring/B6MIduplicate.mtx")
+write.csv(genes,file="/Users/fortee/Documents/SINGLE CELL EXPERIMENTS/RNAseq_timeline_postMI/Data/Spring/GenesB6MISduplicate.csv",row.names = FALSE)
+
+write.csv(types,file="/Users/fortee/Documents/SINGLE CELL EXPERIMENTS/RNAseq_timeline_postMI/Data/Spring/TypesB6MIduplicate.csv",row.names = FALSE)
+write.csv(sample,file="/Users/fortee/Documents/SINGLE CELL EXPERIMENTS/RNAseq_timeline_postMI/Data/Spring/SampleB6MIduplicate.csv",row.names = FALSE)
+```
+new.ident <-  c("0"="Fibros", "1"="Macs", "2"="Myofb", "3"="ECs", "4"="PLS Fibros", "5"="FibrosB", "6"="Monocytes", "7"="End Fibros", "8"="MacsB", "9"="B cells", "10"="Granulocytes", "11"="T cells", "12"="Prolif Myofb", "13"="DCs", "14"="Epi", "15"="Prolif Macs", "16"="Mt2 Myofb", "17"="FibrosC","19"="SMC/Pericytes", "20"="Mono/Macs", "21"="ECsB", "22"="NK", "23"="IFNr", "24"="Lymph ECs", "25"="DCsB", "26"="ECsC", "27"="DCs myeloid", "28"="Schwann", "29"="B cellsB", "30"="Mast cells", "31"="B cellsC")
+
+
+
+foldername <- "Data"
+wd<-"/Users/fortee/Documents/SINGLE CELL EXPERIMENTS/RNAseq_timeline_postMI"           
+combined<-readRDS(file.path(wd,foldername,"agg_res5_combined.rds"))
+ident_use <-c(0,4,6,7,12)
+subcluster<- SubsetData(combined, ident.use = ident_use, subset.raw = T,  do.clean=T)
+rm(combined)
+subcluster <- NormalizeData(subcluster)
+subcluster <- FindVariableGenes(object = subcluster, mean.function = ExpMean, dispersion.function = LogVMR,
+                                x.low.cutoff = 0.01, x.high.cutoff = 8, y.cutoff = 0.5)
+subcluster <- ScaleData(object = subcluster, genes.use =subcluster@var.genes)
+subcluster <- RunPCA(object = subcluster, pc.genes = subcluster@var.genes, pcs.compute = 50)
+
+PCElbowPlot(subcluster,  num.pc = 50)
+```{r}
+##smaller subset
+result<-SetAllIdent(result, id="descriptionF")
+Smaller<-SubsetData(result, ident.use = c("NOD sham 17002","NOD MI 17003","B6 sham 17004","B6 MI 17005","NOD sham 17006","NOD MI 17007","B6 sham 17008","B6 MI 17009"))
+#MI129<-SetAllIdent(MI129, ident.use="MI129@meta.data$res.0.6")
+Smaller<-SetIdent(Smaller, ident.use=Smaller@meta.data$res.0.6)
+Smaller<-SetAllIdent(Smaller, id="CellType_0.5")
+
+ident_use<-c("DCs", "DCsB","DCs myeloid") #"Cd3d"
+DCs<- SubsetData(Smaller, ident.use = ident_use, subset.raw = T,  do.clean=T )
+DCs<-SetIdent(DCs, ident.use=result@meta.data$descriptionF)
+cluster.averages <-AverageExpression(DCs,return.seurat = TRUE, show.progress = FALSE)
+#avg2 <- AverageExpression(result1)
+#cluster.colmeans<-colMeans(cluster.averages@data[result1@var.genes,])
+##average expression of all genes in a cluster for each time points
+#barplot(cluster.colmeans, main = paste("Average Expression for", ident_use ))
+barplot(table(DCs@ident), main = paste("Num of cells for",ident_use))
+cell_count = table(DCs@ident, DCs@meta.data$descriptionF)
+#write.xlsx(cell_count, file="cellcountHarmonyDCs.xlsx", row.names = TRUE) 
+
+DCs_ave<-cluster.averages@data
+as.matrix(DCs_ave)
+write.csv(as.matrix(DCs_ave), file = "/Users/fortee/Documents/SINGLE CELL EXPERIMENTS/RNAseq_timeline_postMI/Results/DCsHarmony_ave_subset.csv")
+## differentially expressed genes among all time points
+
+
+```
+

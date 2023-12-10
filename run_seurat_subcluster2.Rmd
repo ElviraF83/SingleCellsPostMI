@@ -1,0 +1,495 @@
+
+```{r}
+library(dplyr)
+
+library(Seurat)
+library(Matrix)
+require(openxlsx)
+library(scales)
+library(plyr)
+library(stringr)
+
+foldername <- "Data"
+wd<-"/Users/fortee/Documents/SINGLE CELL EXPERIMENTS/RNAseq_timeline_postMI"           
+combined<-readRDS(file.path(wd,foldername,"agg_res5_combined.rds"))
+ident_use <-c(0,4,6,7,12)
+combined@meta.data$CellType_0.5
+ident_use <-c("Fibroblasts I","Fibroblasts II","Fibroblasts III","Myofibroblasts","Epicardium")
+subcluster1 <- SubsetData(combined, ident.use = ident_use, subset.raw = T,  do.clean=T)
+TSNEPlot(subcluster1, do.return = T, pt.size = 0.5, group.by = "stim",colors.use=c("#ffbb00","#ff2f00","#b5ff3f","#3fffb9","#00a6ff","#00007f","#0011ff"),width=760, height = 490, units = "px",pointsize = 12.5, res=600, font=2)
+subcluster <- subcluster1
+subcluster<- SubsetData(combined, ident.use = ident_use, subset.raw = T,  do.clean=T)
+rm(combined)
+subcluster <- NormalizeData(subcluster)
+subcluster <- FindVariableGenes(object = subcluster, mean.function = ExpMean, dispersion.function = LogVMR,
+                                x.low.cutoff = 0.01, x.high.cutoff = 8, y.cutoff = 0.5)
+subcluster <- ScaleData(object = subcluster, genes.use =subcluster@var.genes)
+subcluster <- RunPCA(object = subcluster, pc.genes = subcluster@var.genes, pcs.compute = 50)
+
+PCElbowPlot(subcluster,  num.pc = 50)
+
+```
+
+Clustering(~15 minutes)
+```{r}
+start_time <- Sys.time()
+
+n_dim = 20
+res = 0.5
+subcluster <- RunTSNE(subcluster,dims.use = 1:n_dim, reduction.use = "pca",do.fast = T, genes.use=subcluster@var.genes)
+
+subcluster <- FindClusters(subcluster, genes.use =subcluster@var.genes,  reduction.type = "pca",
+                               resolution = res, dims.use =1:n_dim)
+subcluster1<-subcluster
+
+new.ident <- c("HEpiD", "LR", "PLS", "Myofb", "IR","MFC","Phagocytic","EndD","ProlifMyofb", "Epicardium", "IFNr", "DC")
+#new.ident <- c("HEpiD", "LR", "PLS", "Myofb", "Phagocytic","IR", "MFC","EndD","ProlifMyofb", "Epicardium", "IFNr", "DC")
+subcluster1@meta.data$res.0.5
+for (i in c(0,1,2,3,4,5,6,7,8,9,10,11) ) {
+subcluster1 <- RenameIdent(object = subcluster1, old.ident.name = i, 
+                                new.ident.name = new.ident[i + 1])}
+
+subcluster1<-StashIdent(subcluster1, save.name = "SubCellType_0.5")
+
+plot.genes3 <- c("Meox1", "Meox2","Ski", "Zeb2")
+plot.genes <- c("zsgreen", "Cxcl14", "Meox1","Pi16","Col8a1", "Postn", "Gsn","Dcn", "Dkk3","Wif1","Mt1", "Mt2")
+plot.genes2<-c( "Cthrc1","Acta2","Col1a1","Comp","Sfrp2","Clu","Ifit3","Actb","Stmn1","Cd52", "Cd74", "Notch2")
+plot.genesi<-c("Ptprc", "Cd52","Ifit3","Isg15","Dmkn","Wt1","Clu","H2afz","Stmn1","Dkk3","Wif1","Comp","Sfrp2","Mt2","Angptl4","Notch2", "Lyz2","Cthrc1","Acta2","Pi16", "Cd248","Meox1", "Sparcl1","Cxcl14","Dpep1", "zsgreen")
+FeaturePlot(subcluster1, features.plot =plot.genes3,cols.use = c("grey","blue"))
+
+TSNEPlot(subcluster1, do.return = T, pt.size = 0.5, group.by = "stim",colors.use=c("#ffbb00","#ff2f00","#b5ff3f","#3fffb9","#00a6ff","#00007f","#0011ff"),width=760, height = 490, units = "px",pointsize = 12.5, res=600, font=2) +ggtitle(paste0("resolution = ", res))+theme(plot.title = element_text(hjust = 0.5, size = 20))
+    TSNEPlot(subcluster1, do.return = T, pt.size = 0.5, group.by = "stim",colors.use=c("#ffbb00","#ff2f00","#b5ff3f","#3fffb9","#00a6ff","#00007f","#0011ff"),width=760, height = 490, units = "px",pointsize = 12.5, res=600, font=2)
+TSNEPlot(subcluster1, do.label = T, do.return = T, pt.size =0.5,colors.use=c("HEpiD"="#019933", "LR"="#577517", "PLS"="#98CA66", "Myofb"="#0166CC", "Phagocytic"="#3fb89a","IR"="#B12221", "MFC"="#033466","EndD"="#D2691D","ProlifMyofb"="#00B0FF", "Epicardium"="#88D9FA", "IFNr"="#7C7C7C", "DC"="#5B5B5B"),width=760, height = 490, units = "px",pointsize = 12.5, res=600, font=2)
+
+
+TSNEPlot(Complete, do.label = T, do.return = T,group.by="CellType_0.5", pt.size =0.5,colors.use=c("Fibroblasts I"="#5CD803", "Fibroblasts II"="#3AFCB8", "Fibroblasts III"="#002401", "Myofibroblasts"="#158E16", "Epicardium"="#B7FB3A"),width=760, height = 490, units = "px",pointsize = 12.5, res=600, font=8)
+
+TSNEPlot(Complete, do.label = F, do.return = T,legend=FALSE, group.by="CellType_0.5", pt.size =0.5,colors.use=c("Fibroblasts I"="#5CD803", "Fibroblasts II"="#3AFCB8", "Fibroblasts III"="#002401", "Myofibroblasts"="#158E16", "Epicardium"="#B7FB3A"),width=760, height = 490, units = "px",pointsize = 12.5, res=600, font=8)
+TSNEPlot(subcluster1, do.label = F, do.return = T,legend=FALSE, pt.size =0.5,colors.use=c("HEpiD"="#019933", "LR"="#577517", "PLS"="#98CA66", "Myofb"="#0166CC", "Phagocytic"="#3fb89a","IR"="#B12221", "MFC"="#033466","EndD"="#D2691D","ProlifMyofb"="#00B0FF", "Epicardium"="#88D9FA", "IFNr"="#7C7C7C", "DC"="#5B5B5B"),width=760, height = 490, units = "px",pointsize = 12.5, res=600, font=8)
+
+TSNEPlot(subcluster1, do.label = T, do.return = T, pt.size =0.5,colors.use=c("chartreuse3","olivedrab","limegreen","cyan3","grey60","firebrick","blue","chocolate","turquoise","lightskyblue","grey50", "grey40"),width=760, height = 490, units = "px",pointsize = 12.5, res=600, font=2)
+
+Complete <- subcluster1
+rm(subcluster, subcluster1)
+#003300","coral","#49ffad",,","#ffb300",,"#7f7fe3","#adff49","firebrick","coral","dimgray"))
+TSNEPlot(subcluster1, do.label = F, do.return = T, pt.size =0.5,colors.use=c("chartreuse3","olivedrab","limegreen","cyan3","grey60","firebrick","blue","chocolate","turquoise","lightskyblue","grey50", "grey40"),width=760, height = 490, units = "px",pointsize = 12.5, res=600, font=2)
+DotPlot(object = subcluster1, genes.plot = c(plot.genesi), plot.legend = TRUE, x.lab.rot=TRUE)#, col.max =  ("0008ff"))#" scale_colour_gradient2(low = "#ccff00", mid = "#000000", high = "#0008ff") )#+scale_colour_gradient2(low = "#ccff00", mid = "#000000", high = "#0008ff") 
+  #scale_colour_gradient2(low = "#FF00FF", mid = "#000000", high = "#FFFF00")
+#+ scale_colour_gradient2(low = "ccff00", mid = "#000000", high = "#0008ff")
+install.packages("RColorBrewer")
+saveRDS(subcluster1, file="/Users/fortee/Documents/SINGLE CELL EXPERIMENTS/RNAseq_timeline_postMI/Data/FibroAggregate.rds" )
+subcluster1 <- readRDS("/Users/fortee/Downloads/FibroAggregate.rds")
+
+subcluster1@meta.data$CellType_0.5
+#for (i in c("Notch2Phagocytic") ) {
+subcluster1 <- RenameIdent(object = subcluster1, old.ident.name = "Notch2Phagocytic", new.ident.name = "Phagocytic")
+subcluster1 <- RenameIdent(object = subcluster1, old.ident.name = "DCs", new.ident.name = "DC")
+```
+
+```{r}
+cluster.averages <-AverageExpression(subcluster1,return.seurat = TRUE, show.progress = FALSE)
+#avgE <- AverageExpression(subcluster1)
+#cluster.averages <- levels(cluster.averages)
+cluster.averages@ident <- factor(cluster.averages@ident, levels = c("EndD","HEpiD", "PLS","IR", "Myofb", "Phagocytic","ProlifMyofb","LR", "MFC", "Epicardium", "IFNr", "DC"))
+#genes=genes<-scan(file="/Users/fortee/Desktop/MT2/Heatmaps/DCs.csv", what="character")
+#genes<-scan(file="/Users/fortee/Downloads/VivekGenes.xlsx", what="character")
+genes<-read.csv("/Users/fortee/Downloads/VivekGenes.csv", header=FALSE)
+genes <- unique(genes)
+allgenes <- subcluster1@data@Dimnames[1]
+  genes1 <- intersect(allgenes, genes)
+avg_expr <- AverageExpression(subcluster1, genes.use=genes)
+
+avg_expr
+#avg_exprb <- read.csv("/Users/fortee/Desktop/AvgExpOrdered.csv")
+as.matrix(avg_exprb)
+write.csv(avg_expr, "/Users/fortee/Desktop/AvgMacromarkers.csv")
+
+DoHeatmap(object = subcluster1, genes.use = genes, slim.col.label = TRUE, remove.key = FALSE, group.label.rot = T)
+
+```
+
+```{r}
+VlnPlot(subcluster1,features.plot =c(plot.genes, plot.genes3),point.size.use = 0.1)
+BuildClusterTree(subcluster1)
+#RunDiffusion(subcluster1, pca=5)
+RunDiffusion(subcluster1, cells.use = NULL, dims.use = 1:5, genes.use = subcluster1@var.genes,
+  reduction.use = "pca", q.use = 0.01, max.dim = 2, scale.clip = 10)#genes.use = pbmc_small@var.genes
+genes<-scan(file="/Users/fortee/Desktop/MT2/Top10.csv", what="character")
+genes<-c("Mt2","Mt1","Prg4","Serpina3n","Angptl4","Gm12840","S100a8","Ccl7","Ccl2","Rps2","Itga5","Eif4a1","Rps18","Timp1","Uap1","Cebpb","Errfi1","Gfpt2","Eif5a","Ppp1r14b")
+DoHeatmap(object = subcluster1, genes.use = genes, slim.col.label = TRUE, remove.key = FALSE, group.label.rot = T)
+
+genes<-c("Mt2","Mt1","Prg4","Serpina3n","Angptl4","Gm12840","S100a8","Ccl7","Ccl2","Rps2","Itga5","Eif4a1","Rps18","Timp1","Uap1","Cebpb","Errfi1","Gfpt2","Eif5a","Ppp1r14b")
+cluster.averages <-AverageExpression(subcluster1,return.seurat = TRUE, show.progress = FALSE)
+avgE <- AverageExpression(subcluster1)
+DoHeatmap(object = cluster.averages, genes.use = genes, slim.col.label = TRUE, remove.key = FALSE, group.label.rot = T)
+
+
+
+genes=genes<-scan(file="/Users/fortee/Desktop/MT2/Top30.csv", what="character")
+end_time <- Sys.time()
+end_time - start_time
+```
+
+```{r}
+sub <- SubsetData(subcluster1, ident.use = c("HEpiD", "LR", "PLS", "Myofb", "Notch2Phagocytic","IR", "MFC","EndD","ProlifMyofb"), subset.raw = T,  do.clean=T)
+
+sub <- NormalizeData(sub)
+sub <- FindVariableGenes(object = sub, mean.function = ExpMean, dispersion.function = LogVMR,
+                                x.low.cutoff = 0.01, x.high.cutoff = 8, y.cutoff = 0.5)
+sub <- ScaleData(object = sub, genes.use =sub@var.genes)
+sub <- RunPCA(object = sub, pc.genes = sub@var.genes, pcs.compute = 50)
+RunDiffusion(sub, cells.use = NULL, dims.use = 1:5, genes.use = sub@var.genes,
+reduction.use = "pca", q.use = 0.01, max.dim = 2, scale.clip = 10)
+```
+
+Plot percentage 
+
+```{r}
+n_cluster = nlevels(subcluster1@ident)
+my_color_palette <- c("HEpiD"="#019933", "LR"="#577517", "PLS"="#98CA66", "Myofb"="#0166CC", "Phagocytic"="#3fb89a","IR"="#B12221", "MFC"="#033466","EndD"="#D2691D","ProlifMyofb"="#00B0FF", "Epicardium"="#88D9FA", "IFNr"="#7C7C7C", "DC"="#5B5B5B")    #### CHANGE THIS LINE TO MODIFY COLOR, eg,  my_color_palette = c(color1, color2 ...)
+cell_count = table(subcluster1@ident, subcluster1@meta.data$stim)
+dat2=data.frame(sweep(cell_count,MARGIN=2,FUN="/",STATS=colSums(cell_count)))
+colnames(dat2)=c("cluster", "sample", "percentage")
+dat2 <- ddply(dat2, .(sample),transform, pos = cumsum(percentage) - (0.5 * percentage))
+dat2$sample <- factor(dat2$sample, levels = levels(subcluster@meta.data$stim))
+p <- ggplot(dat2, aes(x=sample, y=percentage, fill=cluster)) +
+  geom_bar(stat='identity',position =position_fill(reverse = TRUE) ,  colour="grey") +
+    scale_fill_manual(values=my_color_palette)
+  # + scale_y_continuous(expand = c(0,0),limits = c(0,1))
+p<-p+ geom_text(data=dat2, aes(x = sample, y = pos, label = paste0(format(round(percentage*100, 1), nsmall =1 ),"%")), size=4)
+
+p
+
+p <- ggplot(dat2, aes(x=sample, y=percentage, fill=cluster)) +
+  geom_bar(stat='identity',position =position_fill(reverse = TRUE) ) +
+    scale_fill_manual(values=my_color_palette)
+
+```
+
+```{r}
+##TEST
+
+smaller <- SubsetData(subcluster1, ident.use=("IR"))
+all_clusters <- as.character(unique(smaller@ident))
+for (i in 1:length(all_clusters)) {
+  cluster_num <- all_clusters[i]
+  
+   cluster_data <- SubsetData(subcluster1, ident.use=cluster_num)
+  #cluster_data@ident <- cluster_data@meta.data$descriptionF
+  #cluster_data <- SetAllIdent(cluster_data, id="descriptionF")
+  p <- DotPlot(cluster_data, genes.plot = genes,
+               cols.use=c("blue", "red"), do.return=TRUE, plot.legend=TRUE) + coord_flip() + 
+    theme(axis.text.x=element_text(angle=90))
+  plotname <- paste0(make.names("IR"), "_Test", cluster_num, "_dotplot.pdf" )
+  ggsave(plotname, plot=p, height=3+length(genes)/8, width=6)
+}
+getwd()
+ident_use<-"IR"
+sub<- SubsetData(subcluster1, ident.use = ident_use, subset.raw = T,  do.clean=T )
+sub<-SetIdent(sub, ident.use=sub@meta.data$stim)
+cluster.averages <-AverageExpression(sub,return.seurat = TRUE, show.progress = FALSE)
+avg2 <- AverageExpression(sub)
+cluster.colmeans<-colMeans(cluster.averages@data[subcluster1@var.genes,])
+##average expression of all genes in a cluster for each time points
+barplot(cluster.colmeans, main = paste("Average Expression for", ident_use ))
+barplot(table(sub@ident), main = paste("Num of cells for",ident_use))
+genes=genes<-scan(file="/Users/fortee/Desktop/MT2/Cyto.csv", what="character")
+DotPlot(object =cluster.averages, genes.plot = genes, plot.legend = TRUE, x.lab.rot=TRUE)+coord_flip()
+
+
+sub<-SetIdent(sub, ident.use=sub@meta.data$stim)
+genes=genes<-scan(file="/Users/fortee/Desktop/MT2/Cyto.csv", what="character")
+genes=genes<-scan(file="/Users/fortee/Desktop/MT2/Top30.csv", what="character")
+DotPlot(object = sub, genes.plot = genes, plot.legend = TRUE, x.lab.rot=TRUE)
+cluster.averages <-AverageExpression(sub,return.seurat = TRUE, show.progress = FALSE)
+avg2 <- AverageExpression(sub)
+cluster.colmeans<-colMeans(cluster.averages@data[subcluster1@var.genes,])
+##average expression of all genes in a cluster for each time points
+barplot(cluster.colmeans, main = paste("Average Expression for", ident_use ))
+barplot(table(sub@ident), main = paste("Num of cells for",ident_use))
+DoHeatmap(object = cluster.averages, genes.use = genes, slim.col.label = TRUE, remove.key = FALSE)
+
+```
+
+differential expression(~20 mins)
+```{r}
+start_time <- Sys.time()
+all_markers <-FindAllMarkers(object = subcluster, only.pos = TRUE, min.pct = 0.25, thresh.use = 0.25)
+#all_markers<-split(all_markers, f = all_markers$cluster )
+all_markers<-cbind(all_markers$gene,all_markers[,1:ncol(all_markers)]) 
+    all_markers<-split(all_markers, f = all_markers$cluster )
+    write.xlsx(all_markers, paste0("_markers.xlsx"), sheetName=paste0("cluster ", 1:length(all_markers)-1))
+    getwd()
+end_time <- Sys.time()
+end_time - start_time
+```
+```{r}
+top_markers <- all_markers %>% group_by(cluster) %>% top_n(10, avg_logFC)
+# setting slim.col.label to TRUE will print just the cluster IDS instead of
+# every cell name
+TopGenes <- scan( file="/Users/fortee/Documents/SINGLE CELL EXPERIMENTS/RNAseq_timeline_postMI/Data/Top_markers_fibroSubclusters.csv", what="character")
+TopGenes <- read_csv( file="/Users/fortee/Documents/SINGLE CELL EXPERIMENTS/RNAseq_timeline_postMI/Data/Top_markers_fibroSubclusters.csv")
+DoHeatmap(object = subcluster, genes.use = TopGenes$gene, slim.col.label = TRUE, remove.key = TRUE)
+write.csv(top_markers, file="/Users/fortee/Documents/SINGLE CELL EXPERIMENTS/RNAseq_timeline_postMI/Data/Top_markers_fibroSubclusters.csv")
+```
+
+```{r}
+##SPRING ALL SUBCLUSTERS 1200 per time point
+library(dplyr)
+library("Seurat")
+library(data.table)
+library(tidyverse)
+library(tibble)
+
+barplot(table(subcluster1@ident), main = paste("Num of cells for",ident_use))
+subcluster1<-SetIdent(subcluster1, ident.use=subcluster1@meta.data$stim)
+sub2<-SubsetData(subcluster1, ident.use = subcluster1@meta.data$stim, subset.raw = T,  do.clean=T , max.cells.per.ident = 1200)
+
+
+sub_aggregate_data<-sub2@data
+glimpse(sub_aggregate_data)
+genes<-sub2@data@Dimnames[1]
+head(genes)
+time<-as.list(as.character(sub2@meta.data$stim))
+head(time)
+types<-as.list(as.character(sub2@meta.data$CellType_0.5))
+head(types)
+
+writeMM(sub_aggregate_data,file="/Users/fortee/Documents/SINGLE CELL EXPERIMENTS/RNAseq_timeline_postMI/Data/Spring/AllFibro1200perTP.mtx")
+write.csv(genes,file="/Users/fortee/Documents/SINGLE CELL EXPERIMENTS/RNAseq_timeline_postMI/Data/Spring/GenesAllFibro1200perTP.csv",row.names = FALSE)
+write.csv(time,file="/Users/fortee/Documents/SINGLE CELL EXPERIMENTS/RNAseq_timeline_postMI/Data/Spring/TimeAllFibro1200perTP.csv",row.names = FALSE)
+write.csv(types,file="/Users/fortee/Documents/SINGLE CELL EXPERIMENTS/RNAseq_timeline_postMI/Data/Spring/TypesAllFibro1200perTP.csv",row.names = FALSE)
+
+```
+
+```{r}
+## remove 10,11
+ident_use<-c(0,1,2,3,4,5,6,7,8,9)
+sub<- SubsetData(subcluster, ident.use = ident_use, subset.raw = T,  do.clean=T )
+sub@meta.data$cluster=sub@ident
+#new.ident <- c("Fibroblasts_Cxcl14", "LateFibroblasts_Meox1", "Fibroblasts_Pi16", "Acta2Myofb", "Notch2DCs","Mt2", "LateMyofb","FibroII","Prolifgenes", "Epicardium")
+
+for (i in c(0,1,2,3,4,5,6,7,8,9) ) {
+sub <- RenameIdent(object = sub, old.ident.name = i, 
+                                new.ident.name = new.ident[i + 1])}
+
+sub<-StashIdent(sub, save.name = "CellType_0.5")
+#sub<-SetIdent(sub, ident.use=sub@meta.data$stim)
+saveRDS(sub, file="/Users/fortee/Documents/SINGLE CELL EXPERIMENTS/RNAseq_timeline_postMI/Data/CleanFibroAggregateNo1011.rds" )
+```
+
+```{r} 
+##CleaanFibroSpringPlot Correct names
+subcluster1@meta.data$CellType_0.5
+ident_use<-c("HEpiD", "LR", "PLS", "Myofb", "Phagocytic","IR", "MFC","EndD","ProlifMyofb", "Epicardium")
+sub<- SubsetData(subcluster1, ident.use = ident_use, subset.raw = T,  do.clean=T )
+barplot(table(sub@ident), main = paste("Num of cells for",ident_use))
+sub<-SetIdent(sub, ident.use=sub@meta.data$stim)
+sub2<-SubsetData(sub, ident.use = sub@meta.data$stim, subset.raw = T,  do.clean=T , max.cells.per.ident = 1200)
+
+
+sub2_data<-sub2@data
+
+genes<-sub2@data@Dimnames[1]
+head(genes)
+time<-as.list(as.character(sub2@meta.data$stim))
+head(time)
+types<-as.list(as.character(sub2@meta.data$CellType_0.5))
+head(types)
+typesS <- as.list(as.character(sub2@meta.data$SubCellType_0.5))
+
+writeMM(sub2_data,file="/Users/fortee/Documents/SINGLE CELL EXPERIMENTS/RNAseq_timeline_postMI/Data/Spring/CleanFibro.mtx")
+write.csv(genes,file="/Users/fortee/Documents/SINGLE CELL EXPERIMENTS/RNAseq_timeline_postMI/Data/Spring/Genes.csv",row.names = FALSE)
+write.csv(time,file="/Users/fortee/Documents/SINGLE CELL EXPERIMENTS/RNAseq_timeline_postMI/Data/Spring/TimeClean.csv",row.names = FALSE)
+write.csv(types,file="/Users/fortee/Documents/SINGLE CELL EXPERIMENTS/RNAseq_timeline_postMI/Data/Spring/TypesCleanFibro.csv",row.names = FALSE)
+write.csv(typesS,file="/Users/fortee/Documents/SINGLE CELL EXPERIMENTS/RNAseq_timeline_postMI/Data/Spring/TypesSCleanFibro.csv",row.names = FALSE)
+#sub_aggregate_time<- sub_aggregate_data@meta.data$stim
+#write.csv(sub_aggregate_time, file="/Users/fortee/Documents/SINGLE CELL EXPERIMENTS/RNAseq_timeline_postMI/Data/Time_fibros1000.csv")
+#cellID<-sub_aggregate_data2@Dimnames[[2]]
+#cellID
+#bind_cols(sub_aggregate_time,cellID)
+#merge<-c(sub_aggregate_time,cellID)
+#merge
+#as.table(sub_aggregate_time,cellID)
+#typeof(sub_aggregate_time)
+day=as.list(as.character(sub_aggregate_data@ident))
+
+
+
+write.csv(day, "/Users/fortee/Documents/SINGLE CELL EXPERIMENTS/RNAseq_timeline_postMI/Data/Spring/time_VascularMural.csv",  col.names=FALSE, row.names = FALSE)
+```
+
+```{r}
+##Subclusters pairwise comparison
+subSelect<-readRDS("/Users/fortee/Documents/SINGLE CELL EXPERIMENTS/RNAseq_timeline_postMI/Data/CleanFibroAggregateNo1011.rds")
+diff_genes_pairwise<-FindMarkers(subSelect, ident.1 = "Acta2Myofb", ident.2 = "LateMyofb")
+# view results
+head(diff_genes_pairwise)
+write.csv(diff_genes_pairwise, file="/Users/fortee/Documents/SINGLE CELL EXPERIMENTS/RNAseq_timeline_postMI/Results/PairwiseDifferencesSeuratFibroSubclusters/diff_genes_Acta2vsLateMyofb.csv")
+
+diff_genes_pairwise<-FindMarkers(subSelect, ident.1 = "LateMyofb", ident.2 = "FibroII")
+# view results
+head(diff_genes_pairwise)
+write.csv(diff_genes_pairwise, file="/Users/fortee/Documents/SINGLE CELL EXPERIMENTS/RNAseq_timeline_postMI/Results/PairwiseDifferencesSeuratFibroSubclusters/diff_genes_LateMyofbvsFibroII.csv")
+#new.ident <- c("Fibroblasts_Cxcl14", "LateFibroblasts_Meox1", "Fibroblasts_Pi16", "Acta2Myofb", "Notch2DCs","Mt2", "LateMyofb","FibroII","Prolifgenes", "Epicardium")
+
+diff_genes_pairwise<-FindMarkers(subSelect, ident.1 = "Fibroblasts_Cxcl14", ident.2 = "Fibroblasts_Pi16")
+# view results
+head(diff_genes_pairwise)
+write.csv(diff_genes_pairwise, file="/Users/fortee/Documents/SINGLE CELL EXPERIMENTS/RNAseq_timeline_postMI/Results/PairwiseDifferencesSeuratFibroSubclusters/diff_genes_Cxcl14vsPi16.csv")
+
+diff_genes_pairwise<-FindMarkers(subSelect, ident.1 = "LateMyofb", ident.2 = "LateFibroblasts_Meox1")
+# view results
+head(diff_genes_pairwise)
+write.csv(diff_genes_pairwise, file="/Users/fortee/Documents/SINGLE CELL EXPERIMENTS/RNAseq_timeline_postMI/Results/PairwiseDifferencesSeuratFibroSubclusters/diff_genes_LateMyofb_lateMeoxFb.csv")
+
+diff_genes_pairwise<-FindMarkers(subSelect, ident.1 = "Acta2Myofb", ident.2 = "LateFibroblasts_Meox1")
+# view results
+head(diff_genes_pairwise)
+write.csv(diff_genes_pairwise, file="/Users/fortee/Documents/SINGLE CELL EXPERIMENTS/RNAseq_timeline_postMI/Results/PairwiseDifferencesSeuratFibroSubclusters/diff_genes_Acta2Myofb_lateMeoxFb.csv")
+
+diff_genes_pairwise<-FindMarkers(subSelect, ident.1 = "Fibroblasts_Cxcl14", ident.2 = "Fibroblasts_Pi16")
+# view results
+head(diff_genes_pairwise)
+write.csv(diff_genes_pairwise, file="/Users/fortee/Documents/SINGLE CELL EXPERIMENTS/RNAseq_timeline_postMI/Results/PairwiseDifferencesSeuratFibroSubclusters/diff_genes_Cxcl14vsPi16.csv")
+
+diff_genes_pairwise<-FindMarkers(subSelect, ident.1 = "LateFibroblasts_Meox1", ident.2 = "Fibroblasts_Cxcl14")
+# view results
+head(diff_genes_pairwise)
+write.csv(diff_genes_pairwise, file="/Users/fortee/Documents/SINGLE CELL EXPERIMENTS/RNAseq_timeline_postMI/Results/PairwiseDifferencesSeuratFibroSubclusters/diff_genes_LateMeox1vsCxcl14.csv")
+
+diff_genes_pairwise<-FindMarkers(subSelect, ident.1 = "LateFibroblasts_Meox1", ident.2 = "Fibroblasts_Cxcl14")
+# view results
+head(diff_genes_pairwise)
+write.csv(diff_genes_pairwise, file="/Users/fortee/Documents/SINGLE CELL EXPERIMENTS/RNAseq_timeline_postMI/Results/PairwiseDifferencesSeuratFibroSubclusters/diff_genes_LateMeox1vsCxcl14.csv")
+
+diff_genes_pairwise<-FindMarkers(subSelect, ident.1 = "Mt2", ident.2 = "Fibroblasts_Pi16")
+# view results
+head(diff_genes_pairwise)
+write.csv(diff_genes_pairwise, file="/Users/fortee/Documents/SINGLE CELL EXPERIMENTS/RNAseq_timeline_postMI/Results/PairwiseDifferencesSeuratFibroSubclusters/diff_genes_Mt2vsPi16.csv")
+diff_genes_pairwise<-FindMarkers(subSelect, ident.1 = "Acta2Myofb", ident.2 = "Mt2")
+# view results
+head(diff_genes_pairwise)
+write.csv(diff_genes_pairwise, file="/Users/fortee/Documents/SINGLE CELL EXPERIMENTS/RNAseq_timeline_postMI/Results/PairwiseDifferencesSeuratFibroSubclusters/diff_genes_Acta2Mt2.csv")
+
+diff_genes_pairwise<-FindMarkers(subSelect, ident.1 = "Epicardium", ident.2 = "Mt2")
+# view results
+head(diff_genes_pairwise)
+write.csv(diff_genes_pairwise, file="/Users/fortee/Documents/SINGLE CELL EXPERIMENTS/RNAseq_timeline_postMI/Results/PairwiseDifferencesSeuratFibroSubclusters/diff_genes_EpicardiumMt2.csv")
+```
+```{r}
+#sub2<-sub(c("Fibroblasts_Cxcl14", "LateFibroblasts_Meox1", "Fibroblasts_Pi16", "Acta2Myofb", "Notch2DCs","Mt2", "LateMyofb","FibroII","Prolifgenes", "Epicardium"))
+
+sub2<-SubsetData(subSelect, ident.use = c("Fibroblasts_Cxcl14", "LateFibroblasts_Meox1", "Fibroblasts_Pi16", "Acta2Myofb","Mt2", "LateMyofb","FibroII","Prolifgenes", "Epicardium"), subset.raw = T,  do.clean=T )
+saveRDS(sub2, file="/Users/fortee/Documents/SINGLE CELL EXPERIMENTS/RNAseq_timeline_postMI/Data/CleanFibroAggregateNo_4_1011.rds" )
+
+sub2 <- NormalizeData(sub2)
+sub2 <- FindVariableGenes(object = sub2, mean.function = ExpMean, dispersion.function = LogVMR,                           x.low.cutoff = 0.01, x.high.cutoff = 8, y.cutoff = 0.5)
+sub2 <- ScaleData(object = sub2, genes.use =sub2@var.genes)
+sub2 <- RunPCA(object = sub2, pc.genes = sub2@var.genes, pcs.compute = 50)
+
+PCElbowPlot(sub2,  num.pc = 50)
+
+n_dim = 27
+res = 0.5
+sub2<- RunTSNE(sub2,dims.use = 1:n_dim, reduction.use = "pca",do.fast = T, genes.use=subcluster@var.genes)
+
+sub2 <- FindClusters(sub2, genes.use =sub2@var.genes,  reduction.type = "pca",
+                               resolution = res, dims.use =1:n_dim)
+sub21<-sub2
+plot.genes <- c("zsgreen", "Cxcl14", "Meox1","Pi16","Col8a1", "Postn", "Gsn","Dcn", "Dkk3","Wif1","Mt1", "Mt2")
+plot.genes2<-c( "Cthrc1","Acta2","Col1a1","Comp","Sfrp2","Clu","Ifit3","Actb","Stmn1","Cd52", "Cd74", "Notch2")
+FeaturePlot(sub2, features.plot =plot.genes,cols.use = c("grey","blue"))
+TSNEPlot(sub2, do.return = T, pt.size = 0.5, group.by = "stim",colors.use=c("#ffbb00","#ff2f00","#b5ff3f","#3fffb9","#00a6ff","#00007f","#0011ff"),width=760, height = 490, units = "px",pointsize = 12.5, res=600, font=2) +ggtitle(paste0("resolution = ", res))+theme(plot.title = element_text(hjust = 0.5, size = 20))
+    
+TSNEPlot(sub2, do.label = T, do.return = T, pt.size =0.5,colors.use=c("chartreuse3","olivedrab","limegreen","cyan3","grey60","firebrick","blue","chocolate","turquoise","lightskyblue","grey50", "grey40"),width=760, height = 490, units = "px",pointsize = 12.5, res=600, font=2) #003300","coral","#49ffad",,","#ffb300",,"#7f7fe3","#adff49","firebrick","coral","dimgray"))
+
+DotPlot(object = sub2, genes.plot = c(plot.genes,plot.genes2), plot.legend = TRUE)
+VlnPlot(sub2,features.plot =c(plot.genes, plot.genes2),point.size.use = 0.1)
+
+n_cluster = nlevels(sub2@ident)
+my_color_palette <- c("chartreuse3","olivedrab","firebrick","cyan4","limegreen","blue","chocolate","turquoise","lightskyblue")    #### CHANGE THIS LINE TO MODIFY COLOR, eg,  my_color_palette = c(color1, color2 ...)
+cell_count = table(sub2@ident, sub2@meta.data$stim)
+dat2=data.frame(sweep(cell_count,MARGIN=2,FUN="/",STATS=colSums(cell_count)))
+colnames(dat2)=c("cluster", "sample", "percentage")
+dat2 <- ddply(dat2, .(sample),transform, pos = cumsum(percentage) - (0.5 * percentage))
+dat2$sample <- factor(dat2$sample, levels = levels(sub2@meta.data$stim))
+p <- ggplot(dat2, aes(x=sample, y=percentage, fill=cluster)) +
+  geom_bar(stat='identity',position =position_fill(reverse = TRUE) ,  colour="black") +
+    scale_fill_manual(values=my_color_palette)
+  # + scale_y_continuous(expand = c(0,0),limits = c(0,1))
+p<-p+ geom_text(data=dat2, aes(x = sample, y = pos, label = paste0(format(round(percentage*100, 1), nsmall =1 ),"%")), size=4)
+
+p
+
+```
+
+
+```{r}
+##average expression of all genes in a cluster for each time points
+#barplot(cluster.colmeans, main = paste("Average Expression for", ident_use ))
+barplot(table(sub@ident), main = paste("Num of cells for",ident_use))
+sub2<-SubsetData(subcluster1, ident.use = ident_use, subset.raw = T,  do.clean=T , max.cells.per.ident = 1000)
+sub2<-SetIdent(sub2, ident.use=sub2@meta.data$stim)
+barplot(table(sub2@ident), main = paste("Num of cells for",ident_use))
+
+
+saveRDS(sub, file="/Users/fortee/Documents/SINGLE CELL EXPERIMENTS/RNAseq_timeline_postMI/Data/CleanFibroAggregateNo1011.rds" )
+sub <- readRDS("/Users/fortee/Documents/SINGLE CELL EXPERIMENTS/RNAseq_timeline_postMI/Data/CleanFibroAggregateNo1011.rds" )
+Rawdata<-sub2@raw.data
+Data<-sub2@data
+genes<-Rawdata@Dimnames[1]
+day=as.list(as.character(sub2@ident))
+
+writeMM(Rawdata,file="/Users/fortee/Documents/SINGLE CELL EXPERIMENTS/RNAseq_timeline_postMI/Data/Spring/CleanFibroAggregate_8300cells_RawData.mtx")
+write.csv(genes, "/Users/fortee/Documents/SINGLE CELL EXPERIMENTS/RNAseq_timeline_postMI/Data/Spring/Genes_CleanFibroAggregate_8300cells_Rawdata.csv",  col.names=FALSE, row.names = FALSE)
+#remove first row add a row name "clustering"
+write.csv(day, "/Users/fortee/Documents/SINGLE CELL EXPERIMENTS/RNAseq_timeline_postMI/Data/Spring/time_CleanFibroAggregate_8300cells.csv",  col.names=FALSE, row.names = FALSE)
+## differentially expressed genes among all time points
+library(dplyr)
+```
+
+```{r}
+library(dplyr)
+library("Seurat")
+library(data.table)
+library(tidyverse)
+library(tibble)
+
+combined<-readRDS("/Users/fortee/Documents/SINGLE CELL EXPERIMENTS/RNAseq_timeline_postMI/Data/CleanFibroAggregateNo1011.rds")
+barplot(table(combined@ident), main = paste("Num of cells for",ident_use))
+combined<-SetIdent(combined, ident.use=combined@meta.data$stim)
+sub2<-SubsetData(combined, ident.use = combined@meta.data$stim, subset.raw = T,  do.clean=T , max.cells.per.ident = 1200)
+
+
+sub_aggregate_data<-sub2@data
+glimpse(sub_aggregate_data)
+genes<-sub2@data@Dimnames[1]
+head(genes)
+time<-as.list(as.character(sub2@meta.data$stim))
+head(time)
+types<-as.list(as.character(sub2@meta.data$CellType_0.5))
+head(types)
+
+writeMM(sub_aggregate_data,file="/Users/fortee/Documents/SINGLE CELL EXPERIMENTS/RNAseq_timeline_postMI/Data/Spring/CleanFibro1200perTP.mtx")
+write.csv(genes,file="/Users/fortee/Documents/SINGLE CELL EXPERIMENTS/RNAseq_timeline_postMI/Data/Spring/GenesCleanFibro1200perTP.csv",row.names = FALSE)
+write.csv(time,file="/Users/fortee/Documents/SINGLE CELL EXPERIMENTS/RNAseq_timeline_postMI/Data/Spring/TimeCleanFibro1200perTP.csv",row.names = FALSE)
+write.csv(types,file="/Users/fortee/Documents/SINGLE CELL EXPERIMENTS/RNAseq_timeline_postMI/Data/Spring/TypesCleanFibro1200perTP.csv",row.names = FALSE)
+#sub_aggregate_time<- sub_aggregate_data@meta.data$stim
+#write.csv(sub_aggregate_time, file="/Users/fortee/Documents/SINGLE CELL EXPERIMENTS/RNAseq_timeline_postMI/Data/Time_fibros1000.csv")
+#cellID<-sub_aggregate_data2@Dimnames[[2]]
+#cellID
+#bind_cols(sub_aggregate_time,cellID)
+#merge<-c(sub_aggregate_time,cellID)
+#merge
+#as.table(sub_aggregate_time,cellID)
+#typeof(sub_aggregate_time)
+day=as.list(as.character(sub_aggregate_data@ident))
+
+
+
+write.csv(day, "/Users/fortee/Documents/SINGLE CELL EXPERIMENTS/RNAseq_timeline_postMI/Data/Spring/time_VascularMural.csv",  col.names=FALSE, row.names = FALSE)
+
+```
+
+
